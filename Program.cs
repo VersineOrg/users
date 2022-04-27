@@ -13,7 +13,45 @@ using users;
 namespace users;
 class HttpServer
     {
-        
+        public static BsonDocument ChangeBson(dynamic changes, BsonDocument userinfo)
+        {
+            User user = new User(userinfo);
+            if (changes.username != null)
+            {
+                user.username = changes.username;
+            }
+            if (changes.bio != null)
+            {
+                user.bio = changes.bio;
+            }
+            if (changes.avatar != null)
+            {
+                user.avatar = changes.avatar;
+            }
+            if (changes.banner != null)
+            {
+                user.banner = changes.banner;
+            }
+            if (changes.color != null)
+            {
+                user.color = changes.color;
+            }
+            return user.ToBson();
+        }
+        public static BsonDocument friend(dynamic newfriend, dynamic friendtorm, BsonDocument userinfo)
+        {
+            User user = new User(userinfo);
+            if (newfriend != null)
+            {
+                user.friends.Add(newfriend);
+            }
+
+            if (friendtorm != null)
+            {
+                user.friends.Remove(friendtorm);
+            }
+            return user.ToBson();
+        }
         public static HttpListener? Listener;
 
         public static async Task HandleIncomingConnections(IConfigurationRoot config, EasyMango.EasyMango database)
@@ -43,21 +81,55 @@ class HttpServer
                         string bodyString = await reader.ReadToEndAsync();
                         dynamic body = JsonConvert.DeserializeObject(bodyString)!;
 
-                        string username = ((string) body.token).Trim() ?? "";
-                        string userid = WebToken.GetIdFromToken(username);
-
-                        List<string> changes = new List<string>();
+                        string user = ((string) body.token).Trim() ?? "";
+                        string userid = WebToken.GetIdFromToken(user);
+                        
                         if (database.GetSingleDatabaseEntry("_id", new BsonObjectId(userid), out BsonDocument UserBson))
                         {
                             switch (Lexed[1].Str)
                             {
                                 case "edit":
+                                    BsonDocument editedbson = ChangeBson(body.changed, UserBson);
+                                    if (database.ReplaceSingleDatabaseEntry("_id", new BsonObjectId(userid),editedbson))
+                                    {
+                                        Response.Success(resp, "user edited",editedbson.ToString());
+                                    }
+                                    else
+                                    {
+                                        Response.Fail(resp,"user not found");
+                                    }
                                     break;
                                 case "addfriend":
+                                    BsonDocument addedfriendbson = friend(body.friend, null, UserBson);
+                                    if (database.ReplaceSingleDatabaseEntry("_id", new BsonObjectId(userid), addedfriendbson))
+                                    {
+                                        Response.Success(resp, "friend added", addedfriendbson.ToString());
+                                    }
+                                    else
+                                    {
+                                        Response.Fail(resp,"user not found");
+                                    }
                                     break;
                                 case "removefriend":
+                                    BsonDocument removedfriend = friend(null, body.friendtorm, UserBson);
+                                    if (database.ReplaceSingleDatabaseEntry("_id", new BsonObjectId(userid), removedfriend))
+                                    {
+                                        Response.Success(resp, "friend removed", removedfriend.ToString());
+                                    }
+                                    else
+                                    {
+                                        Response.Fail(resp,"user not found");
+                                    }
                                     break;
                                 case "delete":
+                                    if (database.RemoveSingleDatabaseEntry("_id",new BsonObjectId(userid)))
+                                    {
+                                        Response.Success(resp,"user deleted","we good");
+                                    }
+                                    else
+                                    {
+                                        Response.Fail(resp,"user to delete not found");
+                                    }
                                     break;
                                 default:
                                     Response.Fail(resp, "invalid body");
@@ -77,33 +149,7 @@ class HttpServer
                 resp.Close();
             }
         }
-
-        public BsonDocument ChangeBson(dynamic changes, BsonDocument userinfo)
-        {
-            User user = new User(userinfo);
-            if (changes.username != null)
-            {
-                user.username = changes.username;
-            }
-            if (changes.bio != null)
-            {
-                user.bio = changes.bio;
-            }
-            if (changes.avatar != null)
-            {
-                user.avatar = changes.avatar;
-            }
-            if (changes.banner != null)
-            {
-                user.banner = changes.banner;
-            }
-            if (changes.color != null)
-            {
-                user.color = changes.color;
-            }
-
-            return changes;
-        }
+        
         public static void Main(string[] args)
         {
             // Build the configuration for the env variables
