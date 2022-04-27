@@ -48,7 +48,7 @@ public class User
 
     public BsonDocument ToBson()
     {
-        BsonDocument result = new BsonDocument(
+        return new BsonDocument(
             new BsonElement("username",username),
             new BsonElement("password",password),
             new BsonElement("ticket",ticket),
@@ -61,6 +61,5 @@ public class User
             new BsonElement("incomingFriendRequests",new BsonArray(incomingFriendRequests)),
             new BsonElement("outgoingFriendRequests",new BsonArray(outgoingFriendRequests))
         );
-        return result;
     }
 }
