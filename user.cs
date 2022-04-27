@@ -1,7 +1,6 @@
 using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
 
-namespace users;
+namespace door;
 
 public class User
 {
@@ -14,7 +13,6 @@ public class User
     public String banner;
     public String color;
     public List<BsonObjectId> friends;
-    public List<BsonObjectId> circles;
     public List<BsonObjectId> incomingFriendRequests;
     public List<BsonObjectId> outgoingFriendRequests;
     
@@ -29,7 +27,6 @@ public class User
         banner = "https://images7.alphacoders.com/421/thumb-1920-421957.jpg";
         color = "28DBB7";
         friends = new List<BsonObjectId>();
-        circles = new List<BsonObjectId>();
         incomingFriendRequests = new List<BsonObjectId>();
         outgoingFriendRequests = new List<BsonObjectId>();
     }
@@ -45,7 +42,6 @@ public class User
         banner = "https://images7.alphacoders.com/421/thumb-1920-421957.jpg";
         color = "28DBB7";
         friends = new List<BsonObjectId>();
-        circles = new List<BsonObjectId>();
         incomingFriendRequests = new List<BsonObjectId>();
         outgoingFriendRequests = new List<BsonObjectId>();
     }
@@ -61,10 +57,9 @@ public class User
             new BsonElement("bio",bio),
             new BsonElement("banner",banner),
             new BsonElement("color",color),
-            new BsonElement("friends",new BsonArray(friends.AsEnumerable())),
-            new BsonElement("circles",new BsonArray(circles.AsEnumerable())),
-            new BsonElement("incomingFriendRequests",new BsonArray(incomingFriendRequests.AsEnumerable())),
-            new BsonElement("outgoingFriendRequests",new BsonArray(outgoingFriendRequests.AsEnumerable()))
+            new BsonElement("friends",new BsonArray(friends)),
+            new BsonElement("incomingFriendRequests",new BsonArray(incomingFriendRequests)),
+            new BsonElement("outgoingFriendRequests",new BsonArray(outgoingFriendRequests))
         );
         return result;
     }
