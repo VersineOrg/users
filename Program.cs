@@ -81,8 +81,8 @@ class HttpServer
                         string bodyString = await reader.ReadToEndAsync();
                         dynamic body = JsonConvert.DeserializeObject(bodyString)!;
 
-                        string user = ((string) body.token).Trim() ?? "";
-                        string userid = WebToken.GetIdFromToken(user);
+                        string username = ((string) body.token).Trim() ?? "";
+                        string userid = WebToken.GetIdFromToken(username);
                         
                         if (database.GetSingleDatabaseEntry("_id", new BsonObjectId(userid), out BsonDocument UserBson))
                         {
@@ -99,28 +99,6 @@ class HttpServer
                                         Response.Fail(resp,"user not found");
                                     }
                                     break;
-                                case "addfriend":
-                                    BsonDocument addedfriendbson = friend(body.friend, null, UserBson);
-                                    if (database.ReplaceSingleDatabaseEntry("_id", new BsonObjectId(userid), addedfriendbson))
-                                    {
-                                        Response.Success(resp, "friend added", addedfriendbson.ToString());
-                                    }
-                                    else
-                                    {
-                                        Response.Fail(resp,"user not found");
-                                    }
-                                    break;
-                                case "removefriend":
-                                    BsonDocument removedfriend = friend(null, body.friendtorm, UserBson);
-                                    if (database.ReplaceSingleDatabaseEntry("_id", new BsonObjectId(userid), removedfriend))
-                                    {
-                                        Response.Success(resp, "friend removed", removedfriend.ToString());
-                                    }
-                                    else
-                                    {
-                                        Response.Fail(resp,"user not found");
-                                    }
-                                    break;
                                 case "delete":
                                     if (database.RemoveSingleDatabaseEntry("_id",new BsonObjectId(userid)))
                                     {
@@ -129,6 +107,112 @@ class HttpServer
                                     else
                                     {
                                         Response.Fail(resp,"user to delete not found");
+                                    }
+                                    break;
+                                case "requestFriend": case "deleteRequest":
+                                    string webToken; 
+                                    string requestId; 
+                                    try
+                                    {
+                                        webToken = ((string) body.username).Trim();
+                                        requestId = ((string) body.password).Trim();
+                                    }
+                                    catch
+                                    {
+                                        webToken = "";
+                                        requestId = "";
+                                    }
+                
+                                    if (!String.IsNullOrEmpty(webToken))
+                                    {
+                                        string id = WebToken.GetIdFromToken(webToken);
+                                        if (id=="")
+                                        {
+                                            Response.Fail(resp, "invalid token");
+                                        }
+                                        else
+                                        {
+                                            BsonObjectId userId = new BsonObjectId(new ObjectId(id));
+                                            BsonObjectId friendId = new BsonObjectId(new ObjectId(requestId));
+                        
+                                            if (database.GetSingleDatabaseEntry("_id", userId,
+                                                    out BsonDocument userBsonDocument))
+                                            {
+                                                if (database.GetSingleDatabaseEntry("_id", friendId,
+                                                        out BsonDocument requestedUserBsonDocument))
+                                                {
+                                                    User user = new User(userBsonDocument);
+                                                    User requestedUser = new User(requestedUserBsonDocument);
+                                
+                                                    if (Lexed[1].Str == "requestFriend")
+                                                    {
+                                                        if (user.incomingFriendRequests.Contains(friendId) || 
+                                                            requestedUser.outgoingFriendRequests.Contains(userId))
+                                                        {
+                                                            user.friends.Add(friendId);
+                                                            requestedUser.friends.Add(userId);
+                                        
+                                                            if (user.outgoingFriendRequests.Contains(friendId))
+                                                            {
+                                                                user.outgoingFriendRequests.Remove(friendId);
+                                                            }
+                                                            if (user.incomingFriendRequests.Contains(friendId))
+                                                            {
+                                                                user.incomingFriendRequests.Remove(friendId);
+                                                            }
+                                                            if (requestedUser.outgoingFriendRequests.Contains(userId))
+                                                            {
+                                                                requestedUser.outgoingFriendRequests.Remove(userId);
+                                                            }
+                                                            if (requestedUser.incomingFriendRequests.Contains(userId))
+                                                            {
+                                                                requestedUser.incomingFriendRequests.Remove(userId);
+                                                            }
+                                                        }
+                                                        else
+                                                        {
+                                                            if (!user.outgoingFriendRequests.Contains(friendId))
+                                                            {
+                                                                user.outgoingFriendRequests.Add(friendId);
+                                                            }
+                                                            if (!requestedUser.incomingFriendRequests.Contains(userId))
+                                                            {
+                                                                requestedUser.incomingFriendRequests.Add(userId);
+                                                            }
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        if (user.outgoingFriendRequests.Contains(friendId))
+                                                        {
+                                                            user.outgoingFriendRequests.Remove(friendId);
+                                                        }
+                                                        if (requestedUser.incomingFriendRequests.Contains(userId))
+                                                        {
+                                                            requestedUser.incomingFriendRequests.Remove(userId);
+                                                        }
+                                                    }
+
+                                                    if (database.ReplaceSingleDatabaseEntry("_id", userId, user.ToBson()) && 
+                                                        database.ReplaceSingleDatabaseEntry("_id", friendId, user.ToBson()))
+                                                    {
+                                                        Response.Success(resp, "success", "");
+                                                    }
+                                                    else
+                                                    {
+                                                        Response.Fail(resp, "an error occured, please try again later");
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    Response.Fail(resp, "requested user doesn't exist");
+                                                }
+                                            }
+                                            else
+                                            {
+                                                Response.Fail(resp, "user deleted");
+                                            }
+                                        }
                                     }
                                     break;
                                 default:

@@ -13,25 +13,25 @@ public class User
     public String bio;
     public String banner;
     public String color;
-    public List<ObjectId> friends;
-    public List<ObjectId> circles;
-    public List<ObjectId> incomingFriendRequests;
-    public List<ObjectId> outgoingFriendRequests;
+    public List<BsonObjectId> friends;
+    public List<BsonObjectId> circles;
+    public List<BsonObjectId> incomingFriendRequests;
+    public List<BsonObjectId> outgoingFriendRequests;
     
     public User(string username, string password, string ticket)
     {
-        username = username;
-        password = password;
-        ticket = ticket;
+        this.username = username;
+        this.password = password;
+        this.ticket = ticket;
         ticketCount = 10;
         avatar = "https://i.imgur.com/k7eDNwW.jpg";
         bio = "Hey, I'm using Versine!";
         banner = "https://images7.alphacoders.com/421/thumb-1920-421957.jpg";
         color = "28DBB7";
-        friends = new List<ObjectId>();
-        circles = new List<ObjectId>();
-        incomingFriendRequests = new List<ObjectId>();
-        outgoingFriendRequests = new List<ObjectId>();
+        friends = new List<BsonObjectId>();
+        circles = new List<BsonObjectId>();
+        incomingFriendRequests = new List<BsonObjectId>();
+        outgoingFriendRequests = new List<BsonObjectId>();
     }
 
     public User(BsonDocument document)
@@ -44,10 +44,10 @@ public class User
         bio = "Hey, I'm using Versine!";
         banner = "https://images7.alphacoders.com/421/thumb-1920-421957.jpg";
         color = "28DBB7";
-        friends = new List<ObjectId>();
-        circles = new List<ObjectId>();
-        incomingFriendRequests = new List<ObjectId>();
-        outgoingFriendRequests = new List<ObjectId>();
+        friends = new List<BsonObjectId>();
+        circles = new List<BsonObjectId>();
+        incomingFriendRequests = new List<BsonObjectId>();
+        outgoingFriendRequests = new List<BsonObjectId>();
     }
 
     public BsonDocument ToBson()
