@@ -1,6 +1,6 @@
 using MongoDB.Bson;
 
-namespace door;
+namespace users;
 
 public class User
 {
