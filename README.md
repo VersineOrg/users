@@ -65,6 +65,4 @@ Ask the password to edit username to define a new hashed password with the new u
 
 Add the same rules for username as for username changes
 
-check with rayan if the addfriend / remove friend should be in users or circle MS.
-
- 
+delete circles of deleted users, and assign their posts to user_deleted
