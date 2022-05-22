@@ -48,7 +48,8 @@ class HttpServer
         }
         public static HttpListener? Listener;
 
-        public static async Task HandleIncomingConnections(IConfigurationRoot config, EasyMango.EasyMango database)
+        public static async Task HandleIncomingConnections(IConfigurationRoot config,
+            EasyMango.EasyMango database, WebToken.WebToken jwt)
         {
             while (true)
             {
@@ -76,7 +77,7 @@ class HttpServer
                         dynamic body = JsonConvert.DeserializeObject(bodyString)!;
 
                         string username = ((string) body.token).Trim() ?? "";
-                        string userid = WebToken.GetIdFromToken(username);
+                        string userid = jwt.GetIdFromToken(username);
                         
                         if (database.GetSingleDatabaseEntry("_id", new BsonObjectId(userid), out BsonDocument UserBson))
                         {
@@ -119,7 +120,7 @@ class HttpServer
                 
                                     if (!String.IsNullOrEmpty(webToken))
                                     {
-                                        string id = WebToken.GetIdFromToken(webToken);
+                                        string id = jwt.GetIdFromToken(webToken);
                                         if (id=="")
                                         {
                                             Response.Fail(resp, "invalid token");
@@ -230,13 +231,20 @@ class HttpServer
         
         public static void Main(string[] args)
         {
-            // Build the configuration for the env variables
+            // Load config file
             IConfigurationRoot config =
                 new ConfigurationBuilder()
                     .SetBasePath(Directory.GetCurrentDirectory())
                     .AddJsonFile("appsettings.json", true)
                     .AddEnvironmentVariables()
                     .Build();
+            
+            // Get values from config file
+            string connectionString = config.GetValue<String>("connectionString");
+            string databaseNAme = config.GetValue<String>("databaseName");
+            string collectionName = config.GetValue<String>("collectionName");
+            string secretKey = config.GetValue<String>("secretKey");
+            uint expireDelay = config.GetValue<uint>("expireDelay");
 
             // Create a Http server and start listening for incoming connections
             string url = "http://*:" + config.GetValue<String>("Port") + "/";
@@ -244,17 +252,16 @@ class HttpServer
             Listener.Prefixes.Add(url);
             Listener.Start();
             Console.WriteLine("Listening for connections on {0}", url);
-
-            string connectionString = config.GetValue<String>("connectionString");
-            string databaseNAme = config.GetValue<String>("databaseName");
-            string collectionName = config.GetValue<String>("collectionName");
+            
+            // Json web token
+            WebToken.WebToken jwt = new WebToken.WebToken(secretKey,expireDelay);
 
 
             // Create a new EasyMango database
             EasyMango.EasyMango database = new EasyMango.EasyMango(connectionString, databaseNAme, collectionName);
 
             // Handle requests
-            Task listenTask = HandleIncomingConnections(config, database);
+            Task listenTask = HandleIncomingConnections(config, database, jwt);
             listenTask.GetAwaiter().GetResult();
 
             // Close the listener
