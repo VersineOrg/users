@@ -16,7 +16,9 @@ then the DB is edited and information is returned in the response body for front
 
 The reqests:
 
-This micro service have many endpoints: 
+This microservice has many endpoints: 
+
+-/user/name_of_the_user
 
 -/user/edit
 
@@ -60,9 +62,5 @@ This is an example of response:
 }
 
 Features to implement in the future:
-
-Ask the password to edit username to define a new hashed password with the new username as salt.
-
-Add the same rules for username as for username changes
 
 delete circles of deleted users, and assign their posts to user_deleted
