@@ -1,270 +1,285 @@
 using System.Net;
+using System.Text;
 using MongoDB.Bson;
 using Newtonsoft.Json;
 using VersineResponse;
 using VersineUser;
 
 namespace users;
+
 class HttpServer
+{
+    private static HttpListener? listener;
+
+    private static async Task HandleIncomingConnections(EasyMango.EasyMango database, WebToken.WebToken jwt,
+        string doorUrl)
     {
-        public static BsonDocument ChangeBson(dynamic changes, BsonDocument userinfo)
+        while (true)
         {
-            User user = new User(userinfo);
-            if (changes.username != null)
-            {
-                user.username = changes.username;
-            }
-            if (changes.bio != null)
-            {
-                user.bio = changes.bio;
-            }
-            if (changes.avatar != null)
-            {
-                user.avatar = changes.avatar;
-            }
-            if (changes.banner != null)
-            {
-                user.banner = changes.banner;
-            }
-            if (changes.color != null)
-            {
-                user.color = changes.color;
-            }
-            return user.ToBson();
-        }
-        public static BsonDocument friend(dynamic newfriend, dynamic friendtorm, BsonDocument userinfo)
-        {
-            User user = new User(userinfo);
-            if (newfriend != null)
-            {
-                user.friends.Add(newfriend);
-            }
+            // Will wait here until we hear from a connection
+            HttpListenerContext ctx = await listener?.GetContextAsync()!;
 
-            if (friendtorm != null)
+            // Peel out the requests and response objects
+            HttpListenerRequest req = ctx.Request;
+            HttpListenerResponse resp = ctx.Response;
+
+            // Print out some info about the request
+            Console.WriteLine(req.HttpMethod);
+            Console.WriteLine(req.Url?.ToString());
+            Console.WriteLine(req.UserHostName);
+            Console.WriteLine(req.UserAgent);
+
+            // Lex the url into an array
+            string[] reqUrlArray = (req.Url?.AbsolutePath ?? "").Trim('/').Split('/');
+
+            // Public profile
+            if (req.HttpMethod == "GET" && reqUrlArray.Length == 2 && reqUrlArray[0] == "user")
             {
-                user.friends.Remove(friendtorm);
-            }
-            return user.ToBson();
-        }
-        public static HttpListener? Listener;
+                string username = reqUrlArray[1];
 
-        public static async Task HandleIncomingConnections(IConfigurationRoot config,
-            EasyMango.EasyMango database, WebToken.WebToken jwt)
-        {
-            while (true)
-            {
-                // Will wait here until we hear from a connection
-                HttpListenerContext ctx = await Listener?.GetContextAsync()!;
+                string userid = database.GetSingleDatabaseEntry("username", username, out BsonDocument userBson)
+                    ? userBson.GetElement("_id").Value.AsObjectId.ToString()
+                    : "";
 
-                // Peel out the requests and response objects
-                HttpListenerRequest req = ctx.Request;
-                HttpListenerResponse resp = ctx.Response;
-
-                // Print out some info about the request
-                Console.WriteLine(req.HttpMethod);
-                Console.WriteLine(req.Url?.ToString());
-                Console.WriteLine(req.UserHostName);
-                Console.WriteLine(req.UserAgent);
-
-                List<Token> Lexed = Lexer.Lex(req.Url?.AbsolutePath);
-
-                if (Lexed.Count == 2)
+                if (!string.Equals(userid, ""))
                 {
-                    if (req.HttpMethod == "POST" &&  Lexed[0].Str == "user")
+                    Dictionary<string, string> data = new Dictionary<string, string>
                     {
-                        StreamReader reader = new StreamReader(req.InputStream);
-                        string bodyString = await reader.ReadToEndAsync();
-                        dynamic body = JsonConvert.DeserializeObject(bodyString)!;
+                        { "id", userid },
+                        { "avatar", userBson.GetElement("avatar").Value.AsString },
+                        { "bio", userBson.GetElement("bio").Value.AsString },
+                        { "banner", userBson.GetElement("banner").Value.AsString },
+                        { "color", userBson.GetElement("color").Value.AsString }
+                    };
 
-                        string username = ((string) body.token).Trim() ?? "";
-                        string userid = jwt.GetIdFromToken(username);
-                        
-                        if (database.GetSingleDatabaseEntry("_id", new BsonObjectId(userid), out BsonDocument UserBson))
+                    string jsonData = JsonConvert.SerializeObject(data);
+
+
+                    Response.Success(resp, "Profile provided", jsonData);
+                }
+                else
+                {
+                    Response.Fail(resp, "user not found");
+                }
+            }
+            // Private profile
+            else if (req.HttpMethod == "POST" && req.Url?.AbsolutePath == "/profile")
+            {
+                StreamReader reader = new StreamReader(req.InputStream);
+                string bodyString = await reader.ReadToEndAsync();
+                dynamic body = JsonConvert.DeserializeObject(bodyString)!;
+
+                string token;
+                try
+                {
+                    token = ((string)body.username).Trim();
+                }
+                catch
+                {
+                    token = "";
+                }
+
+                string userid = jwt.GetIdFromToken(token);
+
+                if (!string.Equals(userid, ""))
+                {
+                    if (database.GetSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)),
+                            out BsonDocument userBson))
+                    {
+                        Dictionary<string, string> data = new Dictionary<string, string>
                         {
-                            switch (Lexed[1].Str)
-                            {
-                                case "edit":
-                                    BsonDocument editedbson = ChangeBson(body.changed, UserBson);
-                                    if (database.ReplaceSingleDatabaseEntry("_id", new BsonObjectId(userid),editedbson))
-                                    {
-                                        Response.Success(resp, "user edited",editedbson.ToString());
-                                    }
-                                    else
-                                    {
-                                        Response.Fail(resp,"user not found");
-                                    }
-                                    break;
-                                case "delete":
-                                    if (database.RemoveSingleDatabaseEntry("_id",new BsonObjectId(userid)))
-                                    {
-                                        Response.Success(resp,"user deleted","we good");
-                                    }
-                                    else
-                                    {
-                                        Response.Fail(resp,"user to delete not found");
-                                    }
-                                    break;
-                                case "requestFriend": case "deleteRequest":
-                                    string webToken; 
-                                    string requestId; 
-                                    try
-                                    {
-                                        webToken = ((string) body.username).Trim();
-                                        requestId = ((string) body.password).Trim();
-                                    }
-                                    catch
-                                    {
-                                        webToken = "";
-                                        requestId = "";
-                                    }
-                
-                                    if (!String.IsNullOrEmpty(webToken))
-                                    {
-                                        string id = jwt.GetIdFromToken(webToken);
-                                        if (id=="")
-                                        {
-                                            Response.Fail(resp, "invalid token");
-                                        }
-                                        else
-                                        {
-                                            BsonObjectId userId = new BsonObjectId(new ObjectId(id));
-                                            BsonObjectId friendId = new BsonObjectId(new ObjectId(requestId));
-                        
-                                            if (database.GetSingleDatabaseEntry("_id", userId,
-                                                    out BsonDocument userBsonDocument))
-                                            {
-                                                if (database.GetSingleDatabaseEntry("_id", friendId,
-                                                        out BsonDocument requestedUserBsonDocument))
-                                                {
-                                                    User user = new User(userBsonDocument);
-                                                    User requestedUser = new User(requestedUserBsonDocument);
-                                
-                                                    if (Lexed[1].Str == "requestFriend")
-                                                    {
-                                                        if (user.incomingFriendRequests.Contains(friendId) || 
-                                                            requestedUser.outgoingFriendRequests.Contains(userId))
-                                                        {
-                                                            user.friends.Add(friendId);
-                                                            requestedUser.friends.Add(userId);
-                                        
-                                                            if (user.outgoingFriendRequests.Contains(friendId))
-                                                            {
-                                                                user.outgoingFriendRequests.Remove(friendId);
-                                                            }
-                                                            if (user.incomingFriendRequests.Contains(friendId))
-                                                            {
-                                                                user.incomingFriendRequests.Remove(friendId);
-                                                            }
-                                                            if (requestedUser.outgoingFriendRequests.Contains(userId))
-                                                            {
-                                                                requestedUser.outgoingFriendRequests.Remove(userId);
-                                                            }
-                                                            if (requestedUser.incomingFriendRequests.Contains(userId))
-                                                            {
-                                                                requestedUser.incomingFriendRequests.Remove(userId);
-                                                            }
-                                                        }
-                                                        else
-                                                        {
-                                                            if (!user.outgoingFriendRequests.Contains(friendId))
-                                                            {
-                                                                user.outgoingFriendRequests.Add(friendId);
-                                                            }
-                                                            if (!requestedUser.incomingFriendRequests.Contains(userId))
-                                                            {
-                                                                requestedUser.incomingFriendRequests.Add(userId);
-                                                            }
-                                                        }
-                                                    }
-                                                    else
-                                                    {
-                                                        if (user.outgoingFriendRequests.Contains(friendId))
-                                                        {
-                                                            user.outgoingFriendRequests.Remove(friendId);
-                                                        }
-                                                        if (requestedUser.incomingFriendRequests.Contains(userId))
-                                                        {
-                                                            requestedUser.incomingFriendRequests.Remove(userId);
-                                                        }
-                                                    }
+                            { "id", userid },
+                            { "ticket", userBson.GetElement("ticket").Value.AsString },
+                            { "ticketCount", userBson.GetElement("ticketCount").Value.AsInt32.ToString() },
+                            { "avatar", userBson.GetElement("avatar").Value.AsString },
+                            { "bio", userBson.GetElement("bio").Value.AsString },
+                            { "banner", userBson.GetElement("banner").Value.AsString },
+                            { "color", userBson.GetElement("color").Value.AsString }
+                        };
 
-                                                    if (database.ReplaceSingleDatabaseEntry("_id", userId, user.ToBson()) && 
-                                                        database.ReplaceSingleDatabaseEntry("_id", friendId, user.ToBson()))
-                                                    {
-                                                        Response.Success(resp, "success", "");
-                                                    }
-                                                    else
-                                                    {
-                                                        Response.Fail(resp, "an error occured, please try again later");
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                    Response.Fail(resp, "requested user doesn't exist");
-                                                }
-                                            }
-                                            else
-                                            {
-                                                Response.Fail(resp, "user deleted");
-                                            }
-                                        }
-                                    }
-                                    break;
-                                default:
-                                    Response.Fail(resp, "invalid body");
-                                    break;
+                        string jsonData = JsonConvert.SerializeObject(data);
+
+
+                        Response.Success(resp, "Profile provided", jsonData);
+                    }
+                    else
+                    {
+                        Response.Fail(resp, "user no longer exists");
+                    }
+                }
+                else
+                {
+                    Response.Fail(resp, "invalid token");
+                }
+            }
+            else if (req.HttpMethod == "POST" && req.Url?.AbsolutePath == "/deleteUser")
+            {
+                StreamReader reader = new StreamReader(req.InputStream);
+                string bodyString = await reader.ReadToEndAsync();
+                dynamic body = JsonConvert.DeserializeObject(bodyString)!;
+
+                string token;
+                string password;
+                try
+                {
+                    token = ((string)body.username).Trim();
+                    password = ((string)body.password).Trim();
+                }
+                catch
+                {
+                    token = "";
+                    password = "";
+                }
+
+                string userid = jwt.GetIdFromToken(token);
+
+                if (!string.Equals(userid, ""))
+                {
+                    if (database.GetSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)),
+                            out BsonDocument userBson))
+                    {
+                        HttpClient client = new HttpClient();
+
+                        Dictionary<string, string> login = new Dictionary<string, string>
+                        {
+                            { "username", userBson.GetElement("username").Value.AsString },
+                            { "password", password }
+                        };
+
+                        string requestBody = JsonConvert.SerializeObject(login);
+                        var httpContent = new StringContent(requestBody, Encoding.UTF8, "application/json");
+                        var result = await client.PostAsync(doorUrl + "/login", httpContent);
+                        string bodystr = await result.Content.ReadAsStringAsync();
+                        dynamic json = JsonConvert.DeserializeObject(bodystr)!;
+                        if ((string)json.status == "success")
+                        {
+                            if (database.RemoveSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid))))
+                            {
+                                // TODO : remove all posts, friend requests and circles of the user
+                                Response.Success(resp, "user successfully deleted", "");
+                            }
+                            else
+                            {
+                                Response.Fail(resp, "an error occured, please try again later");
                             }
                         }
                         else
                         {
-                            Response.Fail(resp, "user not found");
+                            Response.Fail(resp, "wrong password");
                         }
                     }
                     else
                     {
-                        Response.Fail(resp, "404");
+                        Response.Fail(resp, "user no longer exists");
                     }
                 }
-                resp.Close();
+                else
+                {
+                    Response.Fail(resp, "invalid token");
+                }
             }
-        }
-        
-        public static void Main(string[] args)
-        {
-            // Load config file
-            IConfigurationRoot config =
-                new ConfigurationBuilder()
-                    .SetBasePath(Directory.GetCurrentDirectory())
-                    .AddJsonFile("appsettings.json", true)
-                    .AddEnvironmentVariables()
-                    .Build();
-            
-            // Get values from config file
-            string connectionString = config.GetValue<String>("connectionString");
-            string databaseNAme = config.GetValue<String>("databaseName");
-            string collectionName = config.GetValue<String>("collectionName");
-            string secretKey = config.GetValue<String>("secretKey");
-            uint expireDelay = config.GetValue<uint>("expireDelay");
+            else if (req.HttpMethod == "POST" && req.Url?.AbsolutePath == "/editBio")
+            {
+                StreamReader reader = new StreamReader(req.InputStream);
+                string bodyString = await reader.ReadToEndAsync();
+                dynamic body = JsonConvert.DeserializeObject(bodyString)!;
 
-            // Create a Http server and start listening for incoming connections
-            string url = "http://*:" + config.GetValue<String>("Port") + "/";
-            Listener = new HttpListener();
-            Listener.Prefixes.Add(url);
-            Listener.Start();
-            Console.WriteLine("Listening for connections on {0}", url);
-            
-            // Json web token
-            WebToken.WebToken jwt = new WebToken.WebToken(secretKey,expireDelay);
+                string token;
+                string bio;
+                try
+                {
+                    token = ((string)body.username).Trim();
+                }
+                catch
+                {
+                    token = "";
+                }
 
+                try
+                {
+                    bio = ((string)body.username).Trim();
+                }
+                catch
+                {
+                    bio = "";
+                }
+                
+                string userid = jwt.GetIdFromToken(token);
 
-            // Create a new EasyMango database
-            EasyMango.EasyMango database = new EasyMango.EasyMango(connectionString, databaseNAme, collectionName);
+                if (!string.Equals(userid, ""))
+                {
+                    if (database.GetSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)),
+                            out BsonDocument userBson))
+                    {
+                        VersineUser.User user = new User(userBson);
 
-            // Handle requests
-            Task listenTask = HandleIncomingConnections(config, database, jwt);
-            listenTask.GetAwaiter().GetResult();
+                        user.bio = bio;
 
-            // Close the listener
-            Listener.Close();
+                        if (database.ReplaceSingleDatabaseEntry("_id", userid, user.ToBson()))
+                        {
+                            Response.Success(resp, "user bio changed",bio);
+                        }
+                        else
+                        {
+                            Response.Fail(resp, "an error occured, please try again later");
+                        }
+                    }
+                    else
+                    {
+                        Response.Fail(resp, "user no longer exists");
+                    }
+                }
+                else
+                {
+                    Response.Fail(resp, "invalid token");
+                }
+            }
+            else
+            {
+                Response.Fail(resp, "404");
+            }
+
+            resp.Close();
         }
     }
+
+    public static void Main(string[] args)
+    {
+        // Load config file
+        IConfigurationRoot config =
+            new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", true)
+                .AddEnvironmentVariables()
+                .Build();
+
+        // Get values from config file
+        string connectionString = config.GetValue<string>("connectionString");
+        string databaseNAme = config.GetValue<string>("databaseName");
+        string collectionName = config.GetValue<string>("collectionName");
+        string secretKey = config.GetValue<string>("secretKey");
+        string doorUrl = config.GetValue<string>("doorUrl");
+        uint expireDelay = config.GetValue<uint>("expireDelay");
+
+        // Create a Http server and start listening for incoming connections
+        string url = "http://*:" + config.GetValue<String>("Port") + "/";
+        listener = new HttpListener();
+        listener.Prefixes.Add(url);
+        listener.Start();
+        Console.WriteLine("Listening for connections on {0}", url);
+
+        // Json web token
+        WebToken.WebToken jwt = new WebToken.WebToken(secretKey, expireDelay);
+
+
+        // Create a new EasyMango database
+        EasyMango.EasyMango database = new EasyMango.EasyMango(connectionString, databaseNAme, collectionName);
+
+        // Handle requests
+        Task listenTask = HandleIncomingConnections(database, jwt, doorUrl);
+        listenTask.GetAwaiter().GetResult();
+
+        // Close the listener
+        listener.Close();
+    }
+}
