@@ -235,6 +235,61 @@ class HttpServer
                     Response.Fail(resp, "invalid token");
                 }
             }
+            else if (req.HttpMethod == "POST" && req.Url?.AbsolutePath == "/editUserName")
+            {
+                StreamReader reader = new StreamReader(req.InputStream);
+                string bodyString = await reader.ReadToEndAsync();
+                dynamic body = JsonConvert.DeserializeObject(bodyString)!;
+
+                string token;
+                string username;
+                try
+                {
+                    token = ((string)body.username).Trim();
+                    username = ((string)body.username).Trim();
+                }
+                catch
+                {
+                    token = "";
+                    username = "";
+                }
+                
+                string userid = jwt.GetIdFromToken(token);
+
+                if (!string.Equals(userid, "") && !string.Equals(username, ""))
+                {
+                    if (!database.GetSingleDatabaseEntry("username", username, out BsonDocument nonExistentUser))
+                    {
+                        BsonObjectId userObjectId = new BsonObjectId(new ObjectId(userid));               
+                        if (database.GetSingleDatabaseEntry("_id", userObjectId,
+                                out BsonDocument userBson))
+                        {
+                            User user = new User(userBson);
+                            user.username = username;
+                            if (database.ReplaceSingleDatabaseEntry("_id",userObjectId,user.ToBson()))
+                            {
+                                Response.Success(resp, "username changed", username);
+                            }
+                            else
+                            {
+                                Response.Fail(resp, "an error occured, please try again later");
+                            }
+                        }
+                        else
+                        {
+                            Response.Fail(resp, "user no longer exists");
+                        }
+                    }
+                    else
+                    {
+                        Response.Fail(resp, "username taken");
+                    }
+                }
+                else
+                {
+                    Response.Fail(resp, "invalid body");
+                }
+            }
             else if (req.HttpMethod == "POST" && (req.Url?.AbsolutePath == "/requestFriend" ||
                                                   req.Url?.AbsolutePath == "/deleteRequest"))
             {
@@ -255,131 +310,128 @@ class HttpServer
                     requestId = "";
                 }
 
-                if (!String.IsNullOrEmpty(webToken))
+
+                string id = jwt.GetIdFromToken(webToken);
+                if (string.Equals(id, ""))
                 {
-                    string id = jwt.GetIdFromToken(webToken);
-                    if (id == "")
-                    {
-                        Response.Fail(resp, "invalid token");
-                    }
-                    else
-                    {
-                        BsonObjectId userId = new BsonObjectId(new ObjectId(id));
-                        BsonObjectId friendId = new BsonObjectId(new ObjectId(requestId));
+                    Response.Fail(resp, "invalid token");
+                }
+                else
+                {
+                    BsonObjectId userId = new BsonObjectId(new ObjectId(id));
+                    BsonObjectId friendId = new BsonObjectId(new ObjectId(requestId));
 
-                        if (database.GetSingleDatabaseEntry("_id", userId,
-                                out BsonDocument userBsonDocument))
+                    if (database.GetSingleDatabaseEntry("_id", userId,
+                            out BsonDocument userBsonDocument))
+                    {
+                        if (database.GetSingleDatabaseEntry("_id", friendId,
+                                out BsonDocument requestedUserBsonDocument))
                         {
-                            if (database.GetSingleDatabaseEntry("_id", friendId,
-                                    out BsonDocument requestedUserBsonDocument))
+                            User user = new User(userBsonDocument);
+                            User requestedUser = new User(requestedUserBsonDocument);
+
+                            if (req.Url?.AbsolutePath == "/requestFriend")
                             {
-                                User user = new User(userBsonDocument);
-                                User requestedUser = new User(requestedUserBsonDocument);
-
-                                if (req.Url?.AbsolutePath == "/requestFriend")
+                                if (user.incomingFriendRequests.Contains(friendId) ||
+                                    requestedUser.outgoingFriendRequests.Contains(userId))
                                 {
-                                    if (user.incomingFriendRequests.Contains(friendId) ||
-                                        requestedUser.outgoingFriendRequests.Contains(userId))
-                                    {
-                                        user.friends.Add(friendId);
-                                        requestedUser.friends.Add(userId);
+                                    user.friends.Add(friendId);
+                                    requestedUser.friends.Add(userId);
 
-                                        user.outgoingFriendRequests.Remove(friendId);
-
-                                        user.incomingFriendRequests.Remove(friendId);
-
-                                        requestedUser.outgoingFriendRequests.Remove(userId);
-
-                                        requestedUser.incomingFriendRequests.Remove(userId);
-                                    }
-                                    else
-                                    {
-                                        if (!user.outgoingFriendRequests.Contains(friendId))
-                                        {
-                                            user.outgoingFriendRequests.Add(friendId);
-                                        }
-
-                                        if (!requestedUser.incomingFriendRequests.Contains(userId))
-                                        {
-                                            requestedUser.incomingFriendRequests.Add(userId);
-                                        }
-                                    }
-                                }
-                                else
-                                {
                                     user.outgoingFriendRequests.Remove(friendId);
+
+                                    user.incomingFriendRequests.Remove(friendId);
+
+                                    requestedUser.outgoingFriendRequests.Remove(userId);
 
                                     requestedUser.incomingFriendRequests.Remove(userId);
                                 }
-
-                                if (database.ReplaceSingleDatabaseEntry("_id", userId, user.ToBson()) &&
-                                    database.ReplaceSingleDatabaseEntry("_id", friendId, user.ToBson()))
-                                {
-                                    Response.Success(resp, "success", "");
-                                }
                                 else
                                 {
-                                    Response.Fail(resp, "an error occured, please try again later");
+                                    if (!user.outgoingFriendRequests.Contains(friendId))
+                                    {
+                                        user.outgoingFriendRequests.Add(friendId);
+                                    }
+
+                                    if (!requestedUser.incomingFriendRequests.Contains(userId))
+                                    {
+                                        requestedUser.incomingFriendRequests.Add(userId);
+                                    }
                                 }
                             }
                             else
                             {
-                                Response.Fail(resp, "requested user doesn't exist");
+                                user.outgoingFriendRequests.Remove(friendId);
+
+                                requestedUser.incomingFriendRequests.Remove(userId);
+                            }
+
+                            if (database.ReplaceSingleDatabaseEntry("_id", userId, user.ToBson()) &&
+                                database.ReplaceSingleDatabaseEntry("_id", friendId, user.ToBson()))
+                            {
+                                Response.Success(resp, "success", "");
+                            }
+                            else
+                            {
+                                Response.Fail(resp, "an error occured, please try again later");
                             }
                         }
                         else
                         {
-                            Response.Fail(resp, "user no longer exists");
+                            Response.Fail(resp, "requested user doesn't exist");
                         }
                     }
+                    else
+                    {
+                        Response.Fail(resp, "user no longer exists");
+                    }
                 }
-                else
-                {
-                    Response.Fail(resp, "404");
-                }
-
-                resp.Close();
             }
+            else
+            {
+                Response.Fail(resp, "404");
+            }
+            resp.Close();
         }
     }
 
     public static void Main(string[] args)
-        {
-            // Load config file
-            IConfigurationRoot config =
-                new ConfigurationBuilder()
-                    .SetBasePath(Directory.GetCurrentDirectory())
-                    .AddJsonFile("appsettings.json", true)
-                    .AddEnvironmentVariables()
-                    .Build();
+    {
+        // Load config file
+        IConfigurationRoot config =
+            new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", true)
+                .AddEnvironmentVariables()
+                .Build();
 
-            // Get values from config file
-            string connectionString = config.GetValue<string>("connectionString");
-            string databaseNAme = config.GetValue<string>("databaseName");
-            string collectionName = config.GetValue<string>("collectionName");
-            string secretKey = config.GetValue<string>("secretKey");
-            string doorUrl = config.GetValue<string>("doorUrl");
-            uint expireDelay = config.GetValue<uint>("expireDelay");
+        // Get values from config file
+        string connectionString = config.GetValue<string>("connectionString");
+        string databaseNAme = config.GetValue<string>("databaseName");
+        string collectionName = config.GetValue<string>("collectionName");
+        string secretKey = config.GetValue<string>("secretKey");
+        string doorUrl = config.GetValue<string>("doorUrl");
+        uint expireDelay = config.GetValue<uint>("expireDelay");
 
-            // Create a Http server and start listening for incoming connections
-            string url = "http://*:" + config.GetValue<String>("Port") + "/";
-            listener = new HttpListener();
-            listener.Prefixes.Add(url);
-            listener.Start();
-            Console.WriteLine("Listening for connections on {0}", url);
+        // Create a Http server and start listening for incoming connections
+        string url = "http://*:" + config.GetValue<String>("Port") + "/";
+        listener = new HttpListener();
+        listener.Prefixes.Add(url);
+        listener.Start();
+        Console.WriteLine("Listening for connections on {0}", url);
 
-            // Json web token
-            WebToken.WebToken jwt = new WebToken.WebToken(secretKey, expireDelay);
+        // Json web token
+        WebToken.WebToken jwt = new WebToken.WebToken(secretKey, expireDelay);
 
 
-            // Create a new EasyMango database
-            EasyMango.EasyMango database = new EasyMango.EasyMango(connectionString, databaseNAme, collectionName);
+        // Create a new EasyMango database
+        EasyMango.EasyMango database = new EasyMango.EasyMango(connectionString, databaseNAme, collectionName);
 
-            // Handle requests
-            Task listenTask = HandleIncomingConnections(database, jwt, doorUrl);
-            listenTask.GetAwaiter().GetResult();
+        // Handle requests
+        Task listenTask = HandleIncomingConnections(database, jwt, doorUrl);
+        listenTask.GetAwaiter().GetResult();
 
-            // Close the listener
-            listener.Close();
-        }
+        // Close the listener
+        listener.Close();
     }
+}
