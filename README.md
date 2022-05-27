@@ -2,11 +2,11 @@
 #                         Users                             #
 #############################################################
 
-Autor: Mickael
+Autors: Mickael, Rayan
 
 Last edited: the 27th of april 2022
 
-The role:
+## The role:
 
 This is the users Mirco service,
 It's goal is to recieve request asking to edit the user database, 
@@ -14,53 +14,25 @@ check if the asker is authaurized to edit this user through his token and
 determine the action asked to do by parsing the endpoint and reading the body of the request,
 then the DB is edited and information is returned in the response body for frontend usage.
 
-The reqests:
+## The reqests:
 
-This microservice has many endpoints: 
+This microservice has theese following endpoints: 
 
 -/user/name_of_the_user
 
--/user/edit
+-/profile
 
--/user/delete
+-/deleteUser
 
--/user/addfriend (not implemented)
+-/editBio
 
--/user/removefriend (not implemented)
+-/editUsername
 
-This is an example of a request to this micro service:
+-/requestFriend
 
-http://hostname:port/user/edit
+-/deleteRequest
 
-Method:POST
 
-BODY:
-{
-"token":"ewogICJhbGdvIjogIkhTMjU2IiwKICAidHlwZSI6ICJKV1QiCn0=.ewogICJpZCI6ICI2MjY4MTc5M2Q0NjMyNGMzOTE5YjIzMTEiLAogICJleHAiOiAiMCIKfQ==.Pz4kags/CHIFPyxLPxF2Pz8pSj8vP14/VVU/P3U0JT8="
-
-"changed":{
-
-    "bio":"this is the new bio",
-
-    "username":"this is the new username"
-
-    "otherfield":"newvalue"
-}
-
-The response:
-
-This is an example of response:
-
-{
-
-"status": "success",
-
-"message": "user edited",
-
-"data": "{ \"username\" : \"pkngr\", \"password\" : \"1c333953d794cb13190d0e51db6350795e218921feed13d2840f0015567450d3\", \"ticket\" : \"pkngr-presentletter\", \"ticketCount\" : 10, \"avatar\" : \"https://i.imgur.com/k7eDNwW.jpg\", \"bio\" : \"je host le serveur\", \"banner\" : \"https://images7.alphacoders.com/421/thumb-1920-421957.jpg\", \"color\" : \"28DBB7\", \"friends\" : [], \"circles\" : [], \"incomingFriendRequests\" : [], \"outgoingFriendRequests\" : [] }"
-
-}
-
-Features to implement in the future:
+## Features to implement in the future:
 
 delete circles of deleted users, and assign their posts to user_deleted
