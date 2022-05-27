@@ -235,7 +235,7 @@ class HttpServer
                     Response.Fail(resp, "invalid token");
                 }
             }
-            else if (req.HttpMethod == "POST" && req.Url?.AbsolutePath == "/editUserName")
+            else if (req.HttpMethod == "POST" && req.Url?.AbsolutePath == "/editUsername")
             {
                 StreamReader reader = new StreamReader(req.InputStream);
                 string bodyString = await reader.ReadToEndAsync();
