@@ -11,7 +11,7 @@ class HttpServer
 {
     private static HttpListener? listener;
 
-    private static async Task HandleIncomingConnections(EasyMango.EasyMango database, WebToken.WebToken jwt,
+    private static async Task HandleIncomingConnections(EasyMango.EasyMango userDatabase, EasyMango.EasyMango postDatabase, WebToken.WebToken jwt,
         string doorUrl)
     {
         while (true)
@@ -37,7 +37,7 @@ class HttpServer
             {
                 string username = reqUrlArray[1];
 
-                string userid = database.GetSingleDatabaseEntry("username", username, out BsonDocument userBson)
+                string userid = userDatabase.GetSingleDatabaseEntry("username", username, out BsonDocument userBson)
                     ? userBson.GetElement("_id").Value.AsObjectId.ToString()
                     : "";
 
@@ -83,7 +83,7 @@ class HttpServer
 
                 if (!string.Equals(userid, ""))
                 {
-                    if (database.GetSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)),
+                    if (userDatabase.GetSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)),
                             out BsonDocument userBson))
                     {
                         Dictionary<string, string> data = new Dictionary<string, string>
@@ -135,7 +135,7 @@ class HttpServer
 
                 if (!string.Equals(userid, ""))
                 {
-                    if (database.GetSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)),
+                    if (userDatabase.GetSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)),
                             out BsonDocument userBson))
                     {
                         HttpClient client = new HttpClient();
@@ -153,9 +153,9 @@ class HttpServer
                         dynamic json = JsonConvert.DeserializeObject(bodystr)!;
                         if ((string)json.status == "success")
                         {
-                            if (database.RemoveSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid))))
+                            if (userDatabase.RemoveSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid))))
                             {
-                                // TODO : remove all posts, friend requests and circles of the user
+                                // TODO : remove all posts, friends, friend requests and circles of the user
                                 Response.Success(resp, "user successfully deleted", "");
                             }
                             else
@@ -208,15 +208,15 @@ class HttpServer
 
                 if (!string.Equals(userid, ""))
                 {
-                    if (database.GetSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)),
+                    if (userDatabase.GetSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)),
                             out BsonDocument userBson))
                     {
-                        VersineUser.User user = new User(userBson)
+                        User user = new User(userBson)
                         {
                             bio = bio
                         };
 
-                        if (database.ReplaceSingleDatabaseEntry("_id", userid, user.ToBson()))
+                        if (userDatabase.ReplaceSingleDatabaseEntry("_id", userid, user.ToBson()))
                         {
                             Response.Success(resp, "user bio changed", bio);
                         }
@@ -258,15 +258,17 @@ class HttpServer
 
                 if (!string.Equals(userid, "") && !string.Equals(username, ""))
                 {
-                    if (!database.GetSingleDatabaseEntry("username", username, out BsonDocument nonExistentUser))
+                    if (!userDatabase.GetSingleDatabaseEntry("username", username, out BsonDocument nonExistentUser))
                     {
                         BsonObjectId userObjectId = new BsonObjectId(new ObjectId(userid));               
-                        if (database.GetSingleDatabaseEntry("_id", userObjectId,
+                        if (userDatabase.GetSingleDatabaseEntry("_id", userObjectId,
                                 out BsonDocument userBson))
                         {
-                            User user = new User(userBson);
-                            user.username = username;
-                            if (database.ReplaceSingleDatabaseEntry("_id",userObjectId,user.ToBson()))
+                            User user = new User(userBson)
+                            {
+                                username = username
+                            };
+                            if (userDatabase.ReplaceSingleDatabaseEntry("_id",userObjectId,user.ToBson()))
                             {
                                 Response.Success(resp, "username changed", username);
                             }
@@ -321,10 +323,10 @@ class HttpServer
                     BsonObjectId userId = new BsonObjectId(new ObjectId(id));
                     BsonObjectId friendId = new BsonObjectId(new ObjectId(requestId));
 
-                    if (database.GetSingleDatabaseEntry("_id", userId,
+                    if (userDatabase.GetSingleDatabaseEntry("_id", userId,
                             out BsonDocument userBsonDocument))
                     {
-                        if (database.GetSingleDatabaseEntry("_id", friendId,
+                        if (userDatabase.GetSingleDatabaseEntry("_id", friendId,
                                 out BsonDocument requestedUserBsonDocument))
                         {
                             User user = new User(userBsonDocument);
@@ -366,8 +368,8 @@ class HttpServer
                                 requestedUser.incomingFriendRequests.Remove(userId);
                             }
 
-                            if (database.ReplaceSingleDatabaseEntry("_id", userId, user.ToBson()) &&
-                                database.ReplaceSingleDatabaseEntry("_id", friendId, user.ToBson()))
+                            if (userDatabase.ReplaceSingleDatabaseEntry("_id", userId, user.ToBson()) &&
+                                userDatabase.ReplaceSingleDatabaseEntry("_id", friendId, user.ToBson()))
                             {
                                 Response.Success(resp, "success", "");
                             }
@@ -407,8 +409,10 @@ class HttpServer
 
         // Get values from config file
         string connectionString = config.GetValue<string>("connectionString");
-        string databaseNAme = config.GetValue<string>("databaseName");
-        string collectionName = config.GetValue<string>("collectionName");
+        string userDatabaseNAme = config.GetValue<string>("userDatabaseNAme");
+        string userCollectionName = config.GetValue<string>("userCollectionName");
+        string postDatabaseNAme = config.GetValue<string>("postDatabaseNAme");
+        string postCollectionName = config.GetValue<string>("postCollectionName");
         string secretKey = config.GetValue<string>("secretKey");
         string doorUrl = config.GetValue<string>("doorUrl");
         uint expireDelay = config.GetValue<uint>("expireDelay");
@@ -424,11 +428,12 @@ class HttpServer
         WebToken.WebToken jwt = new WebToken.WebToken(secretKey, expireDelay);
 
 
-        // Create a new EasyMango database
-        EasyMango.EasyMango database = new EasyMango.EasyMango(connectionString, databaseNAme, collectionName);
+        // Create EasyMango databases
+        EasyMango.EasyMango userDatabase = new EasyMango.EasyMango(connectionString, userDatabaseNAme, userCollectionName);
+        EasyMango.EasyMango postDatabase = new EasyMango.EasyMango(connectionString, postDatabaseNAme, postCollectionName);
 
         // Handle requests
-        Task listenTask = HandleIncomingConnections(database, jwt, doorUrl);
+        Task listenTask = HandleIncomingConnections(userDatabase,postDatabase, jwt, doorUrl);
         listenTask.GetAwaiter().GetResult();
 
         // Close the listener
