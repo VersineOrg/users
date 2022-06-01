@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using MongoDB.Bson;
@@ -178,7 +179,7 @@ class HttpServer
                     Response.Fail(resp, "invalid token");
                 }
             }
-            else if (req.HttpMethod == "POST" && req.Url?.AbsolutePath == "/editBio")
+            else if (req.HttpMethod == "POST" && req.Url?.AbsolutePath == "/editUser")
             {
                 StreamReader reader = new StreamReader(req.InputStream);
                 string bodyString = await reader.ReadToEndAsync();
@@ -186,6 +187,9 @@ class HttpServer
 
                 string token;
                 string bio;
+                string color;
+                string avatar;
+                string banner;
                 try
                 {
                     token = ((string)body.username).Trim();
@@ -203,6 +207,30 @@ class HttpServer
                 {
                     bio = "";
                 }
+                try
+                {
+                    color = ((string)body.username).Trim();
+                }
+                catch
+                {
+                    color = "";
+                }
+                try
+                {
+                    avatar = ((string)body.username).Trim();
+                }
+                catch
+                {
+                    avatar = "";
+                }
+                try
+                {
+                    banner = ((string)body.username).Trim();
+                }
+                catch
+                {
+                    banner = "";
+                }
 
                 string userid = jwt.GetIdFromToken(token);
 
@@ -211,19 +239,32 @@ class HttpServer
                     if (userDatabase.GetSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)),
                             out BsonDocument userBson))
                     {
-                        User user = new User(userBson)
+                        // Verifies color is a valid color
+                        if (!((color[0] == '#' && color.Length == 7 && int.TryParse(color.Substring(1),
+                                NumberStyles.HexNumber, null, out Int32 temp)) || string.Equals(color, "")))
                         {
-                            bio = bio
-                        };
+                            color = userBson.GetElement("color").Value.AsString;
+                        }
+                        
+                        // TODO: store avatar image and put link in avatar variable
+                        // TODO: store banner image and put link in banner variable
 
-                        if (userDatabase.ReplaceSingleDatabaseEntry("_id", userid, user.ToBson()))
-                        {
-                            Response.Success(resp, "user bio changed", bio);
-                        }
-                        else
-                        {
-                            Response.Fail(resp, "an error occured, please try again later");
-                        }
+                        User user = new User(userBson)
+                            {
+                                bio = bio,
+                                color = color,
+                                avatar = avatar,
+                                banner = banner
+                            };
+
+                            if (userDatabase.ReplaceSingleDatabaseEntry("_id", userid, user.ToBson()))
+                            {
+                                Response.Success(resp, "user modified", bio);
+                            }
+                            else
+                            {
+                                Response.Fail(resp, "an error occured, please try again later");
+                            }
                     }
                     else
                     {
