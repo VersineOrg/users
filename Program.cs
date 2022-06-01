@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Text;
+using door;
 using MongoDB.Bson;
 using Newtonsoft.Json;
 using VersineResponse;
@@ -331,6 +332,80 @@ class HttpServer
                 else
                 {
                     Response.Fail(resp, "invalid body");
+                }
+            }
+            else if (req.HttpMethod == "POST" && req.Url?.AbsolutePath == "/editPassword")
+            {
+                StreamReader reader = new StreamReader(req.InputStream);
+                string bodyString = await reader.ReadToEndAsync();
+                dynamic body = JsonConvert.DeserializeObject(bodyString)!;
+
+                string token;
+                string password;
+                string newPassword;
+                try
+                {
+                    token = ((string)body.token).Trim();
+                    password = ((string)body.password).Trim();
+                    newPassword = ((string)body.newPassword).Trim();
+                }
+                catch
+                {
+                    token = "";
+                    password = "";
+                    newPassword = "";
+                }
+
+                string userid = jwt.GetIdFromToken(token);
+                if (!string.Equals(userid, ""))
+                {
+                    if (!string.Equals(newPassword, ""))
+                    {
+                        if (userDatabase.GetSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)),
+                            out BsonDocument userBson))
+                    {
+                        HttpClient client = new HttpClient();
+
+                        Dictionary<string, string> login = new Dictionary<string, string>
+                        {
+                            { "username", userBson.GetElement("username").Value.AsString },
+                            { "password", password }
+                        };
+
+                        string requestBody = JsonConvert.SerializeObject(login);
+                        var httpContent = new StringContent(requestBody, Encoding.UTF8, "application/json");
+                        var result = await client.PostAsync(doorUrl + "/login", httpContent);
+                        string bodystr = await result.Content.ReadAsStringAsync();
+                        dynamic json = JsonConvert.DeserializeObject(bodystr)!;
+                        if ((string)json.status == "success")
+                        {
+                            User user = new User(userBson)
+                            {
+                                password = HashTools.HashString(newPassword, userid)
+                            };
+
+                            userDatabase.ReplaceSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)),
+                                user.ToBson());
+                            Response.Success(resp, "user password modified", "");
+                        }
+                        else
+                        {
+                            Response.Fail(resp, "wrong password");
+                        }
+                    }
+                    else
+                    {
+                        Response.Fail(resp, "user no longer exists");
+                    }
+                    }
+                    else
+                    {
+                        Response.Fail(resp, "empty password");
+                    }
+                }
+                else
+                {
+                    Response.Fail(resp, "invalid token");
                 }
             }
             else if (req.HttpMethod == "POST" && (req.Url?.AbsolutePath == "/requestFriend" ||
