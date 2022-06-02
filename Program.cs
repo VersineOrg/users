@@ -64,6 +64,10 @@ class HttpServer
                     Response.Fail(resp, "user not found");
                 }
             }
+            else if (req.HttpMethod == "GET" && req.Url?.AbsolutePath == "/health")
+            {
+                Response.Success(resp,"service up","");
+            }
             // Private profile
             else if (req.HttpMethod == "POST" && req.Url?.AbsolutePath == "/profile")
             {
