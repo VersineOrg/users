@@ -454,7 +454,7 @@ class HttpServer
 
                             if (req.Url?.AbsolutePath == "/requestFriend")
                             {
-                                if (user.incomingFriendRequests.Contains(friendId) ||
+                                if (user.incomingFriendRequests.Contains(friendId) &&
                                     requestedUser.outgoingFriendRequests.Contains(userId))
                                 {
                                     user.friends.Add(friendId);
