@@ -457,6 +457,36 @@ class HttpServer
                                 Console.WriteLine("TEST A: " + user.incomingFriendRequests.Contains(friendId));
                                 Console.WriteLine("TEST B: " + requestedUser.outgoingFriendRequests.Contains(userId));
 
+                                Console.WriteLine("1===================");
+                                Console.WriteLine(user.username + "'s id: " + userId);
+                                Console.WriteLine(user.username + "'s incoming friend requests: ");
+                                foreach (var incomingFriendRequest in user.incomingFriendRequests)
+                                {
+                                    Console.WriteLine("FRIEND REQUEST NORMAL: " + incomingFriendRequest);
+                                    Console.WriteLine("FRIEND REQUEST TO STRING: " + incomingFriendRequest.ToString());
+                                }
+                                Console.WriteLine(user.username + "'s outgoing friend requests: ");
+                                foreach (var outgoingFriendRequest in user.outgoingFriendRequests)
+                                {
+                                    Console.WriteLine("FRIEND REQUEST NORMAL: " + outgoingFriendRequest);
+                                    Console.WriteLine("FRIEND REQUEST TO STRING: " + outgoingFriendRequest.ToString());
+                                }
+
+                                Console.WriteLine(requestedUser.username + "'s id: " + requestId);
+                                Console.WriteLine(requestedUser.username + "'s outgoing friend requests: ");
+                                foreach (var outgoingFriendRequest in requestedUser.outgoingFriendRequests)
+                                {
+                                    Console.WriteLine("FRIEND REQUEST NORMAL: " + outgoingFriendRequest);
+                                    Console.WriteLine("FRIEND REQUEST TO STRING: " + outgoingFriendRequest.ToString());
+                                }
+                                Console.WriteLine(requestedUser.username + "'s incoming friend requests: ");
+                                foreach (var incomingFriendRequest in requestedUser.incomingFriendRequests)
+                                {
+                                    Console.WriteLine("FRIEND REQUEST NORMAL: " + incomingFriendRequest);
+                                    Console.WriteLine("FRIEND REQUEST TO STRING: " + incomingFriendRequest.ToString());
+                                }
+                                Console.WriteLine("1===================");
+
                                 
                                 if (user.incomingFriendRequests.Contains(friendId) &&
                                     requestedUser.outgoingFriendRequests.Contains(userId))
@@ -501,13 +531,20 @@ class HttpServer
                                 userDatabase.ReplaceSingleDatabaseEntry("_id", friendId, requestedUser.ToBson()))
                             {
                                 Console.WriteLine("Pas de surprise par ici");
-                                Console.WriteLine("====================");
+
+                                Console.WriteLine("2===================");
                                 Console.WriteLine(user.username + "'s id: " + userId);
                                 Console.WriteLine(user.username + "'s incoming friend requests: ");
                                 foreach (var incomingFriendRequest in user.incomingFriendRequests)
                                 {
                                     Console.WriteLine("FRIEND REQUEST NORMAL: " + incomingFriendRequest);
                                     Console.WriteLine("FRIEND REQUEST TO STRING: " + incomingFriendRequest.ToString());
+                                }
+                                Console.WriteLine(user.username + "'s outgoing friend requests: ");
+                                foreach (var outgoingFriendRequest in user.outgoingFriendRequests)
+                                {
+                                    Console.WriteLine("FRIEND REQUEST NORMAL: " + outgoingFriendRequest);
+                                    Console.WriteLine("FRIEND REQUEST TO STRING: " + outgoingFriendRequest.ToString());
                                 }
 
                                 Console.WriteLine(requestedUser.username + "'s id: " + requestId);
@@ -517,8 +554,13 @@ class HttpServer
                                     Console.WriteLine("FRIEND REQUEST NORMAL: " + outgoingFriendRequest);
                                     Console.WriteLine("FRIEND REQUEST TO STRING: " + outgoingFriendRequest.ToString());
                                 }
-
-                                Console.WriteLine("====================");
+                                Console.WriteLine(requestedUser.username + "'s incoming friend requests: ");
+                                foreach (var incomingFriendRequest in requestedUser.incomingFriendRequests)
+                                {
+                                    Console.WriteLine("FRIEND REQUEST NORMAL: " + incomingFriendRequest);
+                                    Console.WriteLine("FRIEND REQUEST TO STRING: " + incomingFriendRequest.ToString());
+                                }
+                                Console.WriteLine("2===================");
 
                                 Response.Success(resp, "success", "");
                             }
