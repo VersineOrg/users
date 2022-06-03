@@ -489,7 +489,7 @@ class HttpServer
                             }
 
                             if (userDatabase.ReplaceSingleDatabaseEntry("_id", userId, user.ToBson()) &&
-                                userDatabase.ReplaceSingleDatabaseEntry("_id", friendId, user.ToBson()))
+                                userDatabase.ReplaceSingleDatabaseEntry("_id", friendId, requestedUser.ToBson()))
                             {
                                 Response.Success(resp, "success", "");
                             }
