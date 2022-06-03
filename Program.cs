@@ -454,6 +454,9 @@ class HttpServer
 
                             if (req.Url?.AbsolutePath == "/requestFriend")
                             {
+                                Console.WriteLine("TEST A: " + user.incomingFriendRequests.Contains(friendId));
+                                Console.WriteLine("TEST B: " + requestedUser.outgoingFriendRequests.Contains(userId));
+
                                 if (user.incomingFriendRequests.Contains(friendId) &&
                                     requestedUser.outgoingFriendRequests.Contains(userId))
                                 {
@@ -476,16 +479,12 @@ class HttpServer
                                     Console.WriteLine("Cas pas dangereux normalement");
                                     if (!user.outgoingFriendRequests.Contains(friendId))
                                     {
-                                        List<BsonObjectId> newList = user.outgoingFriendRequests;
-                                        newList.Add(friendId);
-                                        user.outgoingFriendRequests = newList;
+                                        user.outgoingFriendRequests.Add(friendId);
                                     }
 
                                     if (!requestedUser.incomingFriendRequests.Contains(userId))
                                     {
-                                        List<BsonObjectId> newList = requestedUser.incomingFriendRequests;
-                                        newList.Add(userId);
-                                        requestedUser.incomingFriendRequests = newList;
+                                        requestedUser.incomingFriendRequests.Add(userId);
                                     }
                                 }
                             }
