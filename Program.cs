@@ -13,7 +13,8 @@ class HttpServer
 {
     private static HttpListener? listener;
 
-    private static async Task HandleIncomingConnections(EasyMango.EasyMango userDatabase, EasyMango.EasyMango postDatabase, WebToken.WebToken jwt,
+    private static async Task HandleIncomingConnections(EasyMango.EasyMango userDatabase,
+        EasyMango.EasyMango postDatabase, WebToken.WebToken jwt,
         string doorUrl)
     {
         while (true)
@@ -37,36 +38,64 @@ class HttpServer
             // Public profile
             if (req.HttpMethod == "GET" && reqUrlArray.Length == 2 && reqUrlArray[0] == "user")
             {
-                string username = reqUrlArray[1];
+                StreamReader reader = new StreamReader(req.InputStream);
+                string bodyString = await reader.ReadToEndAsync();
+                dynamic body = JsonConvert.DeserializeObject(bodyString)!;
 
-                string userid = userDatabase.GetSingleDatabaseEntry("username", username, out BsonDocument userBson)
-                    ? userBson.GetElement("_id").Value.AsObjectId.ToString()
-                    : "";
-
-                if (!string.Equals(userid, ""))
+                string token;
+                try
                 {
-                    Dictionary<string, string> data = new Dictionary<string, string>
+                    token = ((string) body.token).Trim();
+                }
+                catch
+                {
+                    token = "";
+                }
+
+                string requestingUserid = jwt.GetIdFromToken(token);
+
+                if (!string.Equals(requestingUserid, ""))
+                {
+                    if (userDatabase.GetSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(requestingUserid)),
+                            out BsonDocument requestingUserBson))
                     {
-                        { "id", userid },
-                        { "avatar", userBson.GetElement("avatar").Value.AsString },
-                        { "bio", userBson.GetElement("bio").Value.AsString },
-                        { "banner", userBson.GetElement("banner").Value.AsString },
-                        { "color", userBson.GetElement("color").Value.AsString }
-                    };
+                        string username = reqUrlArray[1];
 
-                    string jsonData = JsonConvert.SerializeObject(data);
+                        string userid =
+                            userDatabase.GetSingleDatabaseEntry("username", username, out BsonDocument userBson)
+                                ? userBson.GetElement("_id").Value.AsObjectId.ToString()
+                                : "";
+
+                        if (!string.Equals(userid, ""))
+                        {
+                            Dictionary<string, string> data = new Dictionary<string, string>
+                            {
+                                {"id", userid},
+                                {"avatar", userBson.GetElement("avatar").Value.AsString},
+                                {"bio", userBson.GetElement("bio").Value.AsString},
+                                {"banner", userBson.GetElement("banner").Value.AsString},
+                                {"color", userBson.GetElement("color").Value.AsString}
+                            };
+
+                            string jsonData = JsonConvert.SerializeObject(data);
 
 
-                    Response.Success(resp, "Profile provided", jsonData);
+                            Response.Success(resp, "Profile provided", jsonData);
+                        }
+                        else
+                        {
+                            Response.Fail(resp, "user no longer exists");
+                        }
+                    }
+                    else
+                    {
+                        Response.Fail(resp, "invalid token");
+                    }
                 }
                 else
                 {
                     Response.Fail(resp, "user not found");
                 }
-            }
-            else if (req.HttpMethod == "GET" && req.Url?.AbsolutePath == "/health")
-            {
-                Response.Success(resp,"service up","");
             }
             // Private profile
             else if (req.HttpMethod == "POST" && req.Url?.AbsolutePath == "/profile")
@@ -78,7 +107,7 @@ class HttpServer
                 string token;
                 try
                 {
-                    token = ((string)body.token).Trim();
+                    token = ((string) body.token).Trim();
                 }
                 catch
                 {
@@ -94,13 +123,13 @@ class HttpServer
                     {
                         Dictionary<string, string> data = new Dictionary<string, string>
                         {
-                            { "id", userid },
-                            { "ticket", userBson.GetElement("ticket").Value.AsString },
-                            { "ticketCount", userBson.GetElement("ticketCount").Value.AsInt32.ToString() },
-                            { "avatar", userBson.GetElement("avatar").Value.AsString },
-                            { "bio", userBson.GetElement("bio").Value.AsString },
-                            { "banner", userBson.GetElement("banner").Value.AsString },
-                            { "color", userBson.GetElement("color").Value.AsString }
+                            {"id", userid},
+                            {"ticket", userBson.GetElement("ticket").Value.AsString},
+                            {"ticketCount", userBson.GetElement("ticketCount").Value.AsInt32.ToString()},
+                            {"avatar", userBson.GetElement("avatar").Value.AsString},
+                            {"bio", userBson.GetElement("bio").Value.AsString},
+                            {"banner", userBson.GetElement("banner").Value.AsString},
+                            {"color", userBson.GetElement("color").Value.AsString}
                         };
 
                         string jsonData = JsonConvert.SerializeObject(data);
@@ -128,8 +157,8 @@ class HttpServer
                 string password;
                 try
                 {
-                    token = ((string)body.token).Trim();
-                    password = ((string)body.password).Trim();
+                    token = ((string) body.token).Trim();
+                    password = ((string) body.password).Trim();
                 }
                 catch
                 {
@@ -148,8 +177,8 @@ class HttpServer
 
                         Dictionary<string, string> login = new Dictionary<string, string>
                         {
-                            { "username", userBson.GetElement("username").Value.AsString },
-                            { "password", password }
+                            {"username", userBson.GetElement("username").Value.AsString},
+                            {"password", password}
                         };
 
                         string requestBody = JsonConvert.SerializeObject(login);
@@ -157,7 +186,7 @@ class HttpServer
                         var result = await client.PostAsync(doorUrl + "/login", httpContent);
                         string bodystr = await result.Content.ReadAsStringAsync();
                         dynamic json = JsonConvert.DeserializeObject(bodystr)!;
-                        if ((string)json.status == "success")
+                        if ((string) json.status == "success")
                         {
                             if (userDatabase.RemoveSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid))))
                             {
@@ -197,7 +226,7 @@ class HttpServer
                 string banner;
                 try
                 {
-                    token = ((string)body.token).Trim();
+                    token = ((string) body.token).Trim();
                 }
                 catch
                 {
@@ -206,31 +235,34 @@ class HttpServer
 
                 try
                 {
-                    bio = ((string)body.bio).Trim();
+                    bio = ((string) body.bio).Trim();
                 }
                 catch
                 {
                     bio = "";
                 }
+
                 try
                 {
-                    color = ((string)body.color).Trim();
+                    color = ((string) body.color).Trim();
                 }
                 catch
                 {
                     color = "";
                 }
+
                 try
                 {
-                    avatar = ((string)body.avatar).Trim();
+                    avatar = ((string) body.avatar).Trim();
                 }
                 catch
                 {
                     avatar = "";
                 }
+
                 try
                 {
-                    banner = ((string)body.banner).Trim();
+                    banner = ((string) body.banner).Trim();
                 }
                 catch
                 {
@@ -250,26 +282,26 @@ class HttpServer
                         {
                             color = userBson.GetElement("color").Value.AsString;
                         }
-                        
+
                         // TODO: store avatar image and put link in avatar variable
                         // TODO: store banner image and put link in banner variable
 
                         User user = new User(userBson)
-                            {
-                                bio = bio,
-                                color = color,
-                                avatar = avatar,
-                                banner = banner
-                            };
+                        {
+                            bio = bio,
+                            color = color,
+                            avatar = avatar,
+                            banner = banner
+                        };
 
-                            if (userDatabase.ReplaceSingleDatabaseEntry("_id", userid, user.ToBson()))
-                            {
-                                Response.Success(resp, "user modified", bio);
-                            }
-                            else
-                            {
-                                Response.Fail(resp, "an error occured, please try again later");
-                            }
+                        if (userDatabase.ReplaceSingleDatabaseEntry("_id", userid, user.ToBson()))
+                        {
+                            Response.Success(resp, "user modified", bio);
+                        }
+                        else
+                        {
+                            Response.Fail(resp, "an error occured, please try again later");
+                        }
                     }
                     else
                     {
@@ -291,22 +323,22 @@ class HttpServer
                 string username;
                 try
                 {
-                    token = ((string)body.token).Trim();
-                    username = ((string)body.username).Trim();
+                    token = ((string) body.token).Trim();
+                    username = ((string) body.username).Trim();
                 }
                 catch
                 {
                     token = "";
                     username = "";
                 }
-                
+
                 string userid = jwt.GetIdFromToken(token);
 
                 if (!string.Equals(userid, "") && !string.Equals(username, ""))
                 {
                     if (!userDatabase.GetSingleDatabaseEntry("username", username, out BsonDocument nonExistentUser))
                     {
-                        BsonObjectId userObjectId = new BsonObjectId(new ObjectId(userid));               
+                        BsonObjectId userObjectId = new BsonObjectId(new ObjectId(userid));
                         if (userDatabase.GetSingleDatabaseEntry("_id", userObjectId,
                                 out BsonDocument userBson))
                         {
@@ -314,7 +346,7 @@ class HttpServer
                             {
                                 username = username
                             };
-                            if (userDatabase.ReplaceSingleDatabaseEntry("_id",userObjectId,user.ToBson()))
+                            if (userDatabase.ReplaceSingleDatabaseEntry("_id", userObjectId, user.ToBson()))
                             {
                                 Response.Success(resp, "username changed", username);
                             }
@@ -349,9 +381,9 @@ class HttpServer
                 string newPassword;
                 try
                 {
-                    token = ((string)body.token).Trim();
-                    password = ((string)body.password).Trim();
-                    newPassword = ((string)body.newPassword).Trim();
+                    token = ((string) body.token).Trim();
+                    password = ((string) body.password).Trim();
+                    newPassword = ((string) body.newPassword).Trim();
                 }
                 catch
                 {
@@ -366,41 +398,41 @@ class HttpServer
                     if (!string.Equals(newPassword, ""))
                     {
                         if (userDatabase.GetSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)),
-                            out BsonDocument userBson))
-                    {
-                        HttpClient client = new HttpClient();
-
-                        Dictionary<string, string> login = new Dictionary<string, string>
+                                out BsonDocument userBson))
                         {
-                            { "username", userBson.GetElement("username").Value.AsString },
-                            { "password", password }
-                        };
+                            HttpClient client = new HttpClient();
 
-                        string requestBody = JsonConvert.SerializeObject(login);
-                        var httpContent = new StringContent(requestBody, Encoding.UTF8, "application/json");
-                        var result = await client.PostAsync(doorUrl + "/login", httpContent);
-                        string bodystr = await result.Content.ReadAsStringAsync();
-                        dynamic json = JsonConvert.DeserializeObject(bodystr)!;
-                        if ((string)json.status == "success")
-                        {
-                            User user = new User(userBson)
+                            Dictionary<string, string> login = new Dictionary<string, string>
                             {
-                                password = HashTools.HashString(newPassword, userid)
+                                {"username", userBson.GetElement("username").Value.AsString},
+                                {"password", password}
                             };
 
-                            userDatabase.ReplaceSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)),
-                                user.ToBson());
-                            Response.Success(resp, "user password modified", "");
+                            string requestBody = JsonConvert.SerializeObject(login);
+                            var httpContent = new StringContent(requestBody, Encoding.UTF8, "application/json");
+                            var result = await client.PostAsync(doorUrl + "/login", httpContent);
+                            string bodystr = await result.Content.ReadAsStringAsync();
+                            dynamic json = JsonConvert.DeserializeObject(bodystr)!;
+                            if ((string) json.status == "success")
+                            {
+                                User user = new User(userBson)
+                                {
+                                    password = HashTools.HashString(newPassword, userid)
+                                };
+
+                                userDatabase.ReplaceSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)),
+                                    user.ToBson());
+                                Response.Success(resp, "user password modified", "");
+                            }
+                            else
+                            {
+                                Response.Fail(resp, "wrong password");
+                            }
                         }
                         else
                         {
-                            Response.Fail(resp, "wrong password");
+                            Response.Fail(resp, "user no longer exists");
                         }
-                    }
-                    else
-                    {
-                        Response.Fail(resp, "user no longer exists");
-                    }
                     }
                     else
                     {
@@ -419,21 +451,21 @@ class HttpServer
                 string bodyString = await reader.ReadToEndAsync();
                 dynamic body = JsonConvert.DeserializeObject(bodyString)!;
 
-                string webToken;
+                string token;
                 string requestId;
                 try
                 {
-                    webToken = ((string)body.token).Trim();
-                    requestId = ((string)body.friendId).Trim();
+                    token = ((string) body.token).Trim();
+                    requestId = ((string) body.requestId).Trim();
                 }
                 catch
                 {
-                    webToken = "";
+                    token = "";
                     requestId = "";
                 }
 
 
-                string id = jwt.GetIdFromToken(webToken);
+                string id = jwt.GetIdFromToken(token);
                 if (string.Equals(id, ""))
                 {
                     Response.Fail(resp, "invalid token");
@@ -454,44 +486,9 @@ class HttpServer
 
                             if (req.Url?.AbsolutePath == "/requestFriend")
                             {
-                                Console.WriteLine("TEST A: " + user.incomingFriendRequests.Contains(friendId));
-                                Console.WriteLine("TEST B: " + requestedUser.outgoingFriendRequests.Contains(userId));
-
-                                Console.WriteLine("1===================");
-                                Console.WriteLine(user.username + "'s id: " + userId);
-                                Console.WriteLine(user.username + "'s incoming friend requests: ");
-                                foreach (var incomingFriendRequest in user.incomingFriendRequests)
-                                {
-                                    Console.WriteLine("FRIEND REQUEST NORMAL: " + incomingFriendRequest);
-                                    Console.WriteLine("FRIEND REQUEST TO STRING: " + incomingFriendRequest.ToString());
-                                }
-                                Console.WriteLine(user.username + "'s outgoing friend requests: ");
-                                foreach (var outgoingFriendRequest in user.outgoingFriendRequests)
-                                {
-                                    Console.WriteLine("FRIEND REQUEST NORMAL: " + outgoingFriendRequest);
-                                    Console.WriteLine("FRIEND REQUEST TO STRING: " + outgoingFriendRequest.ToString());
-                                }
-
-                                Console.WriteLine(requestedUser.username + "'s id: " + requestId);
-                                Console.WriteLine(requestedUser.username + "'s outgoing friend requests: ");
-                                foreach (var outgoingFriendRequest in requestedUser.outgoingFriendRequests)
-                                {
-                                    Console.WriteLine("FRIEND REQUEST NORMAL: " + outgoingFriendRequest);
-                                    Console.WriteLine("FRIEND REQUEST TO STRING: " + outgoingFriendRequest.ToString());
-                                }
-                                Console.WriteLine(requestedUser.username + "'s incoming friend requests: ");
-                                foreach (var incomingFriendRequest in requestedUser.incomingFriendRequests)
-                                {
-                                    Console.WriteLine("FRIEND REQUEST NORMAL: " + incomingFriendRequest);
-                                    Console.WriteLine("FRIEND REQUEST TO STRING: " + incomingFriendRequest.ToString());
-                                }
-                                Console.WriteLine("1===================");
-
-                                
-                                if (user.incomingFriendRequests.Contains(friendId) &&
+                                if (user.incomingFriendRequests.Contains(friendId) ||
                                     requestedUser.outgoingFriendRequests.Contains(userId))
                                 {
-                                    Console.WriteLine("On est dans le cas que j'apprécie");
                                     user.friends.Add(friendId);
                                     requestedUser.friends.Add(userId);
 
@@ -503,11 +500,8 @@ class HttpServer
 
                                     requestedUser.incomingFriendRequests.Remove(userId);
                                 }
-
                                 else
                                 {
-
-                                    Console.WriteLine("Cas pas dangereux normalement");
                                     if (!user.outgoingFriendRequests.Contains(friendId))
                                     {
                                         user.outgoingFriendRequests.Add(friendId);
@@ -521,47 +515,14 @@ class HttpServer
                             }
                             else
                             {
-                                Console.WriteLine("Cas chelou qui explique les choses mais pas vraiment");
                                 user.outgoingFriendRequests.Remove(friendId);
 
                                 requestedUser.incomingFriendRequests.Remove(userId);
                             }
 
                             if (userDatabase.ReplaceSingleDatabaseEntry("_id", userId, user.ToBson()) &&
-                                userDatabase.ReplaceSingleDatabaseEntry("_id", friendId, requestedUser.ToBson()))
+                                userDatabase.ReplaceSingleDatabaseEntry("_id", friendId, user.ToBson()))
                             {
-                                Console.WriteLine("Pas de surprise par ici");
-
-                                Console.WriteLine("2===================");
-                                Console.WriteLine(user.username + "'s id: " + userId);
-                                Console.WriteLine(user.username + "'s incoming friend requests: ");
-                                foreach (var incomingFriendRequest in user.incomingFriendRequests)
-                                {
-                                    Console.WriteLine("FRIEND REQUEST NORMAL: " + incomingFriendRequest);
-                                    Console.WriteLine("FRIEND REQUEST TO STRING: " + incomingFriendRequest.ToString());
-                                }
-                                Console.WriteLine(user.username + "'s outgoing friend requests: ");
-                                foreach (var outgoingFriendRequest in user.outgoingFriendRequests)
-                                {
-                                    Console.WriteLine("FRIEND REQUEST NORMAL: " + outgoingFriendRequest);
-                                    Console.WriteLine("FRIEND REQUEST TO STRING: " + outgoingFriendRequest.ToString());
-                                }
-
-                                Console.WriteLine(requestedUser.username + "'s id: " + requestId);
-                                Console.WriteLine(requestedUser.username + "'s outgoing friend requests: ");
-                                foreach (var outgoingFriendRequest in requestedUser.outgoingFriendRequests)
-                                {
-                                    Console.WriteLine("FRIEND REQUEST NORMAL: " + outgoingFriendRequest);
-                                    Console.WriteLine("FRIEND REQUEST TO STRING: " + outgoingFriendRequest.ToString());
-                                }
-                                Console.WriteLine(requestedUser.username + "'s incoming friend requests: ");
-                                foreach (var incomingFriendRequest in requestedUser.incomingFriendRequests)
-                                {
-                                    Console.WriteLine("FRIEND REQUEST NORMAL: " + incomingFriendRequest);
-                                    Console.WriteLine("FRIEND REQUEST TO STRING: " + incomingFriendRequest.ToString());
-                                }
-                                Console.WriteLine("2===================");
-
                                 Response.Success(resp, "success", "");
                             }
                             else
@@ -580,10 +541,15 @@ class HttpServer
                     }
                 }
             }
+            else if (req.HttpMethod == "GET" && req.Url?.AbsolutePath == "/health")
+            {
+                Response.Success(resp, "service up", "");
+            }
             else
             {
                 Response.Fail(resp, "404");
             }
+
             resp.Close();
         }
     }
@@ -620,11 +586,13 @@ class HttpServer
 
 
         // Create EasyMango databases
-        EasyMango.EasyMango userDatabase = new EasyMango.EasyMango(connectionString, userDatabaseNAme, userCollectionName);
-        EasyMango.EasyMango postDatabase = new EasyMango.EasyMango(connectionString, postDatabaseNAme, postCollectionName);
+        EasyMango.EasyMango userDatabase =
+            new EasyMango.EasyMango(connectionString, userDatabaseNAme, userCollectionName);
+        EasyMango.EasyMango postDatabase =
+            new EasyMango.EasyMango(connectionString, postDatabaseNAme, postCollectionName);
 
         // Handle requests
-        Task listenTask = HandleIncomingConnections(userDatabase,postDatabase, jwt, doorUrl);
+        Task listenTask = HandleIncomingConnections(userDatabase, postDatabase, jwt, doorUrl);
         listenTask.GetAwaiter().GetResult();
 
         // Close the listener
