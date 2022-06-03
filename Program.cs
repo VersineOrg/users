@@ -471,6 +471,8 @@ class HttpServer
                                 }
                                 else
                                 {
+
+                                    Console.WriteLine("Cas pas dangereux normalement");
                                     if (!user.outgoingFriendRequests.Contains(friendId))
                                     {
                                         user.outgoingFriendRequests.Add(friendId);
@@ -493,6 +495,7 @@ class HttpServer
                             if (userDatabase.ReplaceSingleDatabaseEntry("_id", userId, user.ToBson()) &&
                                 userDatabase.ReplaceSingleDatabaseEntry("_id", friendId, requestedUser.ToBson()))
                             {
+                                Console.WriteLine("Pas de surprise par ici");
                                 Response.Success(resp, "success", "");
                             }
                             else
