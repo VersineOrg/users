@@ -78,7 +78,7 @@ class HttpServer
                 string token;
                 try
                 {
-                    token = ((string)body.username).Trim();
+                    token = ((string)body.token).Trim();
                 }
                 catch
                 {
@@ -128,7 +128,7 @@ class HttpServer
                 string password;
                 try
                 {
-                    token = ((string)body.username).Trim();
+                    token = ((string)body.token).Trim();
                     password = ((string)body.password).Trim();
                 }
                 catch
@@ -197,7 +197,7 @@ class HttpServer
                 string banner;
                 try
                 {
-                    token = ((string)body.username).Trim();
+                    token = ((string)body.token).Trim();
                 }
                 catch
                 {
@@ -206,7 +206,7 @@ class HttpServer
 
                 try
                 {
-                    bio = ((string)body.username).Trim();
+                    bio = ((string)body.bio).Trim();
                 }
                 catch
                 {
@@ -214,7 +214,7 @@ class HttpServer
                 }
                 try
                 {
-                    color = ((string)body.username).Trim();
+                    color = ((string)body.color).Trim();
                 }
                 catch
                 {
@@ -222,7 +222,7 @@ class HttpServer
                 }
                 try
                 {
-                    avatar = ((string)body.username).Trim();
+                    avatar = ((string)body.avatar).Trim();
                 }
                 catch
                 {
@@ -230,7 +230,7 @@ class HttpServer
                 }
                 try
                 {
-                    banner = ((string)body.username).Trim();
+                    banner = ((string)body.banner).Trim();
                 }
                 catch
                 {
@@ -291,7 +291,7 @@ class HttpServer
                 string username;
                 try
                 {
-                    token = ((string)body.username).Trim();
+                    token = ((string)body.token).Trim();
                     username = ((string)body.username).Trim();
                 }
                 catch
@@ -423,8 +423,8 @@ class HttpServer
                 string requestId;
                 try
                 {
-                    webToken = ((string)body.username).Trim();
-                    requestId = ((string)body.password).Trim();
+                    webToken = ((string)body.token).Trim();
+                    requestId = ((string)body.friendId).Trim();
                 }
                 catch
                 {
