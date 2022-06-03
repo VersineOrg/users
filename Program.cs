@@ -457,6 +457,7 @@ class HttpServer
                                 if (user.incomingFriendRequests.Contains(friendId) &&
                                     requestedUser.outgoingFriendRequests.Contains(userId))
                                 {
+                                    Console.WriteLine("On est dans le cas que j'apprécie");
                                     user.friends.Add(friendId);
                                     requestedUser.friends.Add(userId);
 
@@ -483,6 +484,7 @@ class HttpServer
                             }
                             else
                             {
+                                Console.WriteLine("Cas chelou qui explique les choses mais pas vraiment");
                                 user.outgoingFriendRequests.Remove(friendId);
 
                                 requestedUser.incomingFriendRequests.Remove(userId);
