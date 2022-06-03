@@ -469,18 +469,23 @@ class HttpServer
 
                                     requestedUser.incomingFriendRequests.Remove(userId);
                                 }
+
                                 else
                                 {
 
                                     Console.WriteLine("Cas pas dangereux normalement");
                                     if (!user.outgoingFriendRequests.Contains(friendId))
                                     {
-                                        user.outgoingFriendRequests.Add(friendId);
+                                        List<BsonObjectId> newList = user.outgoingFriendRequests;
+                                        newList.Add(friendId);
+                                        user.outgoingFriendRequests = newList;
                                     }
 
                                     if (!requestedUser.incomingFriendRequests.Contains(userId))
                                     {
-                                        requestedUser.incomingFriendRequests.Add(userId);
+                                        List<BsonObjectId> newList = requestedUser.incomingFriendRequests;
+                                        newList.Add(userId);
+                                        requestedUser.incomingFriendRequests = newList;
                                     }
                                 }
                             }
