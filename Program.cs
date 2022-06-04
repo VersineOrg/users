@@ -126,10 +126,10 @@ class HttpServer
                         User user = new User(userBson);
 
                         var stringifiedFriendArray = "[";
-                        foreach (string friend in user.friends)
+                        foreach (BsonObjectId friend in user.friends)
                         {
                             stringifiedFriendArray += '"';
-                            stringifiedFriendArray += friend;
+                            stringifiedFriendArray += friend.ToString();
                             stringifiedFriendArray += '"';
                             stringifiedFriendArray += ',';
                         }
