@@ -68,13 +68,14 @@ class HttpServer
 
                         if (!string.Equals(userid, ""))
                         {
+                            User user = new User(userBson);
                             Dictionary<string, string> data = new Dictionary<string, string>
                             {
                                 {"id", userid},
-                                {"avatar", userBson.GetElement("avatar").Value.AsString},
-                                {"bio", userBson.GetElement("bio").Value.AsString},
-                                {"banner", userBson.GetElement("banner").Value.AsString},
-                                {"color", userBson.GetElement("color").Value.AsString}
+                                {"avatar", user.avatar},
+                                {"bio", user.bio},
+                                {"banner", user.banner},
+                                {"color", user.color}
                             };
 
                             string jsonData = JsonConvert.SerializeObject(data);
@@ -121,15 +122,29 @@ class HttpServer
                     if (userDatabase.GetSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)),
                             out BsonDocument userBson))
                     {
+
+                        User user = new User(userBson);
+
+                        var stringifiedFriendArray = "[";
+                        foreach (string friend in user.friends)
+                        {
+                            stringifiedFriendArray += '"';
+                            stringifiedFriendArray += friend;
+                            stringifiedFriendArray += '"';
+                            stringifiedFriendArray += ',';
+                        }
+                        stringifiedFriendArray += ']';
+
                         Dictionary<string, string> data = new Dictionary<string, string>
                         {
                             {"id", userid},
-                            {"ticket", userBson.GetElement("ticket").Value.AsString},
-                            {"ticketCount", userBson.GetElement("ticketCount").Value.AsInt32.ToString()},
-                            {"avatar", userBson.GetElement("avatar").Value.AsString},
-                            {"bio", userBson.GetElement("bio").Value.AsString},
-                            {"banner", userBson.GetElement("banner").Value.AsString},
-                            {"color", userBson.GetElement("color").Value.AsString}
+                            {"ticket", user.ticket},
+                            {"ticketCount", user.ticketCount.ToString()},
+                            {"avatar", user.avatar},
+                            {"bio", user.bio},
+                            {"banner", user.banner},
+                            {"color", user.color},
+                            {"friends", stringifiedFriendArray}
                         };
 
                         string jsonData = JsonConvert.SerializeObject(data);
