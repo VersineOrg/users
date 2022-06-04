@@ -36,7 +36,7 @@ class HttpServer
             string[] reqUrlArray = (req.Url?.AbsolutePath ?? "").Trim('/').Split('/');
 
             // Public profile
-            if (req.HttpMethod == "GET" && reqUrlArray.Length == 2 && reqUrlArray[0] == "user")
+            if (req.HttpMethod == "POST" && reqUrlArray.Length == 2 && reqUrlArray[0] == "user")
             {
                 StreamReader reader = new StreamReader(req.InputStream);
                 string bodyString = await reader.ReadToEndAsync();
