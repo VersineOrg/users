@@ -40,7 +40,17 @@ class HttpServer
             {
                 StreamReader reader = new StreamReader(req.InputStream);
                 string bodyString = await reader.ReadToEndAsync();
-                dynamic body = JsonConvert.DeserializeObject(bodyString)!;
+                dynamic body;
+                try
+                {
+                    body = JsonConvert.DeserializeObject(bodyString)!;
+                }
+                catch
+                {
+                    Response.Fail(resp, "bad request");
+                    resp.Close();
+                    continue;
+                }
 
                 string token;
                 try
@@ -103,7 +113,17 @@ class HttpServer
             {
                 StreamReader reader = new StreamReader(req.InputStream);
                 string bodyString = await reader.ReadToEndAsync();
-                dynamic body = JsonConvert.DeserializeObject(bodyString)!;
+                dynamic body;
+                try
+                {
+                    body = JsonConvert.DeserializeObject(bodyString)!;
+                }
+                catch
+                {
+                    Response.Fail(resp, "bad request");
+                    resp.Close();
+                    continue;
+                }
 
                 string token;
                 try
@@ -166,7 +186,17 @@ class HttpServer
             {
                 StreamReader reader = new StreamReader(req.InputStream);
                 string bodyString = await reader.ReadToEndAsync();
-                dynamic body = JsonConvert.DeserializeObject(bodyString)!;
+                dynamic body;
+                try
+                {
+                    body = JsonConvert.DeserializeObject(bodyString)!;
+                }
+                catch
+                {
+                    Response.Fail(resp, "bad request");
+                    resp.Close();
+                    continue;
+                }
 
                 string token;
                 string password;
@@ -232,7 +262,17 @@ class HttpServer
             {
                 StreamReader reader = new StreamReader(req.InputStream);
                 string bodyString = await reader.ReadToEndAsync();
-                dynamic body = JsonConvert.DeserializeObject(bodyString)!;
+                dynamic body;
+                try
+                {
+                    body = JsonConvert.DeserializeObject(bodyString)!;
+                }
+                catch
+                {
+                    Response.Fail(resp, "bad request");
+                    resp.Close();
+                    continue;
+                }
 
                 string token;
                 string bio;
@@ -332,7 +372,17 @@ class HttpServer
             {
                 StreamReader reader = new StreamReader(req.InputStream);
                 string bodyString = await reader.ReadToEndAsync();
-                dynamic body = JsonConvert.DeserializeObject(bodyString)!;
+                dynamic body;
+                try
+                {
+                    body = JsonConvert.DeserializeObject(bodyString)!;
+                }
+                catch
+                {
+                    Response.Fail(resp, "bad request");
+                    resp.Close();
+                    continue;
+                }
 
                 string token;
                 string username;
@@ -389,7 +439,17 @@ class HttpServer
             {
                 StreamReader reader = new StreamReader(req.InputStream);
                 string bodyString = await reader.ReadToEndAsync();
-                dynamic body = JsonConvert.DeserializeObject(bodyString)!;
+                dynamic body;
+                try
+                {
+                    body = JsonConvert.DeserializeObject(bodyString)!;
+                }
+                catch
+                {
+                    Response.Fail(resp, "bad request");
+                    resp.Close();
+                    continue;
+                }
 
                 string token;
                 string password;
@@ -464,22 +524,33 @@ class HttpServer
             {
                 StreamReader reader = new StreamReader(req.InputStream);
                 string bodyString = await reader.ReadToEndAsync();
-                dynamic body = JsonConvert.DeserializeObject(bodyString)!;
-
+                dynamic body;
+                try
+                {
+                    body = JsonConvert.DeserializeObject(bodyString)!;
+                }
+                catch
+                {
+                    Response.Fail(resp, "bad request");
+                    resp.Close();
+                    continue;
+                }
+                
                 string token;
-                string requestId;
+                string requestedUserName;
+                
                 try
                 {
                     token = ((string) body.token).Trim();
-                    requestId = ((string) body.requestId).Trim();
+                    requestedUserName = ((string) body.requestedUserName).Trim();
                 }
                 catch
                 {
                     token = "";
-                    requestId = "";
+                    requestedUserName = "";
                 }
-
-
+                //string requestId;
+                
                 string id = jwt.GetIdFromToken(token);
                 if (string.Equals(id, ""))
                 {
@@ -487,29 +558,30 @@ class HttpServer
                 }
                 else
                 {
+                    
                     BsonObjectId userId = new BsonObjectId(new ObjectId(id));
-                    BsonObjectId friendId = new BsonObjectId(new ObjectId(requestId));
-
+                    
                     if (userDatabase.GetSingleDatabaseEntry("_id", userId,
                             out BsonDocument userBsonDocument))
                     {
-                        if (userDatabase.GetSingleDatabaseEntry("_id", friendId,
+                        if (userDatabase.GetSingleDatabaseEntry("username", requestedUserName,
                                 out BsonDocument requestedUserBsonDocument))
                         {
                             User user = new User(userBsonDocument);
                             User requestedUser = new User(requestedUserBsonDocument);
+                            BsonObjectId requestedUserId = requestedUserBsonDocument.GetElement("_id").Value.AsObjectId;
 
                             if (req.Url?.AbsolutePath == "/requestFriend")
                             {
-                                if (user.incomingFriendRequests.Contains(friendId) ||
+                                if (user.incomingFriendRequests.Contains(requestedUserId) ||
                                     requestedUser.outgoingFriendRequests.Contains(userId))
                                 {
-                                    user.friends.Add(friendId);
+                                    user.friends.Add(requestedUserId);
                                     requestedUser.friends.Add(userId);
 
-                                    user.outgoingFriendRequests.Remove(friendId);
+                                    user.outgoingFriendRequests.Remove(requestedUserId);
 
-                                    user.incomingFriendRequests.Remove(friendId);
+                                    user.incomingFriendRequests.Remove(requestedUserId);
 
                                     requestedUser.outgoingFriendRequests.Remove(userId);
 
@@ -517,9 +589,9 @@ class HttpServer
                                 }
                                 else
                                 {
-                                    if (!user.outgoingFriendRequests.Contains(friendId))
+                                    if (!user.outgoingFriendRequests.Contains(requestedUserId))
                                     {
-                                        user.outgoingFriendRequests.Add(friendId);
+                                        user.outgoingFriendRequests.Add(requestedUserId);
                                     }
 
                                     if (!requestedUser.incomingFriendRequests.Contains(userId))
@@ -530,13 +602,15 @@ class HttpServer
                             }
                             else
                             {
-                                user.outgoingFriendRequests.Remove(friendId);
-
+                                user.outgoingFriendRequests.Remove(requestedUserId);
+                                user.friends.Remove(requestedUserId);
+                                
                                 requestedUser.incomingFriendRequests.Remove(userId);
+                                requestedUser.friends.Remove(userId);
                             }
 
                             if (userDatabase.ReplaceSingleDatabaseEntry("_id", userId, user.ToBson()) &&
-                                userDatabase.ReplaceSingleDatabaseEntry("_id", friendId, requestedUser.ToBson()))
+                                userDatabase.ReplaceSingleDatabaseEntry("_id", requestedUserId, requestedUser.ToBson()))
                             {
                                 Response.Success(resp, "success", "");
                             }
