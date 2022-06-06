@@ -537,17 +537,17 @@ class HttpServer
                 }
                 
                 string token;
-                string requestedUserName;
+                string requesteduserid;
                 
                 try
                 {
                     token = ((string) body.token).Trim();
-                    requestedUserName = ((string) body.requestedUserName).Trim();
+                    requesteduserid = ((string) body.requesteduserid).Trim();
                 }
                 catch
                 {
                     token = "";
-                    requestedUserName = "";
+                    requesteduserid = "";
                 }
                 //string requestId;
                 
@@ -560,11 +560,11 @@ class HttpServer
                 {
                     
                     BsonObjectId userId = new BsonObjectId(new ObjectId(id));
-                    
+                    BsonObjectId requestedid = new BsonObjectId(new ObjectId(requesteduserid));
                     if (userDatabase.GetSingleDatabaseEntry("_id", userId,
                             out BsonDocument userBsonDocument))
                     {
-                        if (userDatabase.GetSingleDatabaseEntry("username", requestedUserName,
+                        if (userDatabase.GetSingleDatabaseEntry("_id", requestedid,
                                 out BsonDocument requestedUserBsonDocument))
                         {
                             User user = new User(userBsonDocument);
@@ -589,14 +589,29 @@ class HttpServer
                                 }
                                 else
                                 {
-                                    if (!user.outgoingFriendRequests.Contains(requestedUserId))
+                                    if (!user.friends.Contains(requestedUserId))
                                     {
-                                        user.outgoingFriendRequests.Add(requestedUserId);
-                                    }
+                                        if (!user.outgoingFriendRequests.Contains(requestedUserId))
+                                        {
+                                            user.outgoingFriendRequests.Add(requestedUserId);
+                                        }
+                                        else
+                                        {
+                                            Response.Fail(resp, "You already have an outgoing friend request for this user!");
+                                        }
 
-                                    if (!requestedUser.incomingFriendRequests.Contains(userId))
+                                        if (!requestedUser.incomingFriendRequests.Contains(userId))
+                                        {
+                                            requestedUser.incomingFriendRequests.Add(userId);
+                                        }
+                                        else
+                                        {
+                                            Response.Fail(resp, "This user already have a friend request from you!");
+                                        }
+                                    }
+                                    else
                                     {
-                                        requestedUser.incomingFriendRequests.Add(userId);
+                                        Response.Fail(resp, "This user is already your friend!");
                                     }
                                 }
                             }
