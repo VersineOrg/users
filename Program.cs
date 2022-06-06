@@ -37,7 +37,7 @@ class HttpServer
 
             // Public profile
             if (req.HttpMethod == "POST" && reqUrlArray.Length == 2 && reqUrlArray[0] == "user")
-            {
+            { 
                 StreamReader reader = new StreamReader(req.InputStream);
                 string bodyString = await reader.ReadToEndAsync();
                 dynamic body;
@@ -82,6 +82,7 @@ class HttpServer
                             Dictionary<string, string> data = new Dictionary<string, string>
                             {
                                 {"id", userid},
+                                {"username", user.username},
                                 {"avatar", user.avatar},
                                 {"bio", user.bio},
                                 {"banner", user.banner},
@@ -155,6 +156,7 @@ class HttpServer
                             Dictionary<string, string> data = new Dictionary<string, string>
                             {
                                 {"id", userid},
+                                {"username", user.username},
                                 {"avatar", user.avatar},
                                 {"bio", user.bio},
                                 {"banner", user.banner},
