@@ -108,7 +108,7 @@ class HttpServer
                     Response.Fail(resp, "user not found");
                 }
             }
-
+            // Public profile by id
             else if (req.HttpMethod == "POST" && reqUrlArray.Length == 2 && reqUrlArray[0] == "userById")
             {
                 StreamReader reader = new StreamReader(req.InputStream);
@@ -218,15 +218,20 @@ class HttpServer
 
                         User user = new User(userBson);
 
-                        var stringifiedFriendArray = "[";
-                        foreach (var friend in user.friends)
+                        string stringified(List<BsonObjectId> list)
                         {
-                            stringifiedFriendArray += '"';
-                            stringifiedFriendArray += friend.ToString();
-                            stringifiedFriendArray += '"';
-                            stringifiedFriendArray += ',';
+                            var stringifiedFriendArray = "[";
+                            foreach (BsonObjectId element in list)
+                            {
+                                stringifiedFriendArray += '"';
+                                stringifiedFriendArray += element.ToString();
+                                stringifiedFriendArray += '"';
+                                stringifiedFriendArray += ',';
+                            }
+                            stringifiedFriendArray += ']';
+
+                            return stringifiedFriendArray;
                         }
-                        stringifiedFriendArray += ']';
 
                         Dictionary<string, string> data = new Dictionary<string, string>
                         {
@@ -237,7 +242,9 @@ class HttpServer
                             {"bio", user.bio},
                             {"banner", user.banner},
                             {"color", user.color},
-                            {"friends", stringifiedFriendArray}
+                            {"friends", stringified(user.friends)},
+                            {"incomingFriendRequests",stringified(user.incomingFriendRequests)},
+                            {"outgoingFriendRequests",stringified(user.outgoingFriendRequests)}
                         };
 
                         string jsonData = JsonConvert.SerializeObject(data);
