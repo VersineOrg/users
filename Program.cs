@@ -332,8 +332,15 @@ class HttpServer
                             out BsonDocument userBson))
                     {
                         // Verifies color is a valid color
-                        if (!((color[0] == '#' && color.Length == 7 && int.TryParse(color.Substring(1),
-                                NumberStyles.HexNumber, null, out Int32 temp)) || string.Equals(color, "")))
+                        if (color.Length >1)
+                        {
+                            if (!((color[0] == '#' && color.Length == 7 && int.TryParse(color.Substring(1),
+                                    NumberStyles.HexNumber, null, out Int32 temp)) || string.Equals(color, "")))
+                            {
+                                color = userBson.GetElement("color").Value.AsString;
+                            }
+                        }
+                        else
                         {
                             color = userBson.GetElement("color").Value.AsString;
                         }
@@ -341,15 +348,15 @@ class HttpServer
                         // TODO: store avatar image and put link in avatar variable
                         // TODO: store banner image and put link in banner variable
 
-                        User user = new User(userBson)
-                        {
-                            bio = bio,
-                            color = color,
-                            avatar = avatar,
-                            banner = banner
-                        };
-
-                        if (userDatabase.ReplaceSingleDatabaseEntry("_id", userid, user.ToBson()))
+                        User user = new User(userBson);
+                        user.bio = bio;
+                        user.color = color;
+                        user.avatar = avatar;
+                        user.banner = banner;
+                        user.avatar = avatar;
+                        user.banner = banner;
+                        
+                        if (userDatabase.ReplaceSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(userid)), user.ToBson()))
                         {
                             Response.Success(resp, "user modified", bio);
                         }
