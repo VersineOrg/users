@@ -108,6 +108,79 @@ class HttpServer
                     Response.Fail(resp, "user not found");
                 }
             }
+
+            else if (req.HttpMethod == "POST" && reqUrlArray.Length == 2 && reqUrlArray[0] == "userById")
+            {
+                StreamReader reader = new StreamReader(req.InputStream);
+                string bodyString = await reader.ReadToEndAsync();
+                dynamic body;
+                try
+                {
+                    body = JsonConvert.DeserializeObject(bodyString)!;
+                }
+                catch
+                {
+                    Response.Fail(resp, "bad request");
+                    resp.Close();
+                    continue;
+                }
+
+                string token;
+                try
+                {
+                    token = ((string) body.token).Trim();
+                }
+                catch
+                {
+                    token = "";
+                }
+
+                string requestingUserid = jwt.GetIdFromToken(token);
+
+                if (!string.Equals(requestingUserid, ""))
+                {
+                    if (userDatabase.GetSingleDatabaseEntry("_id", new BsonObjectId(new ObjectId(requestingUserid)),
+                            out BsonDocument requestingUserBson))
+                    {
+                        string requestedUserId = reqUrlArray[1];
+
+                        string userid =
+                            userDatabase.GetSingleDatabaseEntry("_id", new BsonObjectId (new ObjectId(requestedUserId)), out BsonDocument userBson)
+                                ? userBson.GetElement("_id").Value.AsObjectId.ToString()
+                                : "";
+
+                        if (!string.Equals(userid, ""))
+                        {
+                            User user = new User(userBson);
+                            Dictionary<string, string> data = new Dictionary<string, string>
+                            {
+                                {"id", userid},
+                                {"avatar", user.avatar},
+                                {"bio", user.bio},
+                                {"banner", user.banner},
+                                {"color", user.color}
+                            };
+
+                            string jsonData = JsonConvert.SerializeObject(data);
+
+
+                            Response.Success(resp, "Profile provided", jsonData);
+                        }
+                        else
+                        {
+                            Response.Fail(resp, "user no longer exists");
+                        }
+                    }
+                    else
+                    {
+                        Response.Fail(resp, "invalid token");
+                    }
+                }
+                else
+                {
+                    Response.Fail(resp, "user not found");
+                }
+            }
             // Private profile
             else if (req.HttpMethod == "POST" && req.Url?.AbsolutePath == "/profile")
             {
